@@ -50,6 +50,7 @@ This epic delivers performance monitoring capabilities:
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.psi_results (
   id BIGSERIAL PRIMARY KEY,
@@ -94,43 +95,44 @@ FOR EACH STATEMENT EXECUTE FUNCTION refresh_psi_latest();
 ```
 
 **Worker Structure:**
+
 ```typescript
 // packages/workers/psi/src/index.ts
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    const sites = await fetchEligibleSites(env)
-    
+    const sites = await fetchEligibleSites(env);
+
     for (const site of sites) {
       try {
         // Scan mobile
-        const mobileResult = await scanWithPSI(site.domain, 'mobile', env.PSI_API_KEY)
-        await storePSIResult(env, site, mobileResult, 'mobile')
-        
+        const mobileResult = await scanWithPSI(site.domain, 'mobile', env.PSI_API_KEY);
+        await storePSIResult(env, site, mobileResult, 'mobile');
+
         // Scan desktop
-        const desktopResult = await scanWithPSI(site.domain, 'desktop', env.PSI_API_KEY)
-        await storePSIResult(env, site, desktopResult, 'desktop')
-        
+        const desktopResult = await scanWithPSI(site.domain, 'desktop', env.PSI_API_KEY);
+        await storePSIResult(env, site, desktopResult, 'desktop');
+
         // Rate limit: wait 2s between sites
-        await sleep(2000)
+        await sleep(2000);
       } catch (error) {
-        console.error(`PSI scan failed for ${site.domain}:`, error)
+        console.error(`PSI scan failed for ${site.domain}:`, error);
         // Continue with next site
       }
     }
-  }
-}
+  },
+};
 
 async function scanWithPSI(url: string, strategy: 'mobile' | 'desktop', apiKey: string) {
-  const psiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&key=${apiKey}`
-  
-  const response = await fetch(psiUrl)
-  
+  const psiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&key=${apiKey}`;
+
+  const response = await fetch(psiUrl);
+
   if (!response.ok) {
-    throw new Error(`PSI API error: ${response.status}`)
+    throw new Error(`PSI API error: ${response.status}`);
   }
-  
-  const data = await response.json()
-  
+
+  const data = await response.json();
+
   return {
     lighthouse_version: data.lighthouseResult.lighthouseVersion,
     performance_score: Math.round(data.lighthouseResult.categories.performance.score * 100),
@@ -138,34 +140,35 @@ async function scanWithPSI(url: string, strategy: 'mobile' | 'desktop', apiKey: 
     cls: data.lighthouseResult.audits['cumulative-layout-shift']?.numericValue,
     inp_ms: data.lighthouseResult.audits['interaction-to-next-paint']?.numericValue,
     fcp_ms: data.lighthouseResult.audits['first-contentful-paint']?.numericValue,
-    opportunities: extractOpportunities(data.lighthouseResult.audits)
-  }
+    opportunities: extractOpportunities(data.lighthouseResult.audits),
+  };
 }
 ```
 
 **Scan Schedule Logic:**
+
 ```typescript
 const SCAN_INTERVALS = {
-  base: 30 * 24 * 60 * 60 * 1000,    // 30 days
-  pro: 7 * 24 * 60 * 60 * 1000,      // 7 days
-  agency: 7 * 24 * 60 * 60 * 1000    // 7 days
-}
+  base: 30 * 24 * 60 * 60 * 1000, // 30 days
+  pro: 7 * 24 * 60 * 60 * 1000, // 7 days
+  agency: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
 
 async function fetchEligibleSites(env: Env) {
   const sites = await supabase
     .from('sites')
     .select('*, agencies(tier), psi_results(scanned_at)')
-    .is('deleted_at', null)
-  
-  return sites.filter(site => {
-    const lastScan = site.psi_results[0]?.scanned_at
-    if (!lastScan) return true // Never scanned
-    
-    const interval = SCAN_INTERVALS[site.agencies.tier]
-    const nextScanDue = new Date(lastScan).getTime() + interval
-    
-    return Date.now() >= nextScanDue
-  })
+    .is('deleted_at', null);
+
+  return sites.filter((site) => {
+    const lastScan = site.psi_results[0]?.scanned_at;
+    if (!lastScan) return true; // Never scanned
+
+    const interval = SCAN_INTERVALS[site.agencies.tier];
+    const nextScanDue = new Date(lastScan).getTime() + interval;
+
+    return Date.now() >= nextScanDue;
+  });
 }
 ```
 
@@ -194,104 +197,107 @@ async function fetchEligibleSites(env: Env) {
 #### Technical Notes
 
 **Rate Limiting Constants:**
+
 ```typescript
 export const PSI_RATE_LIMITS = {
   base: { intervalMs: 10 * 60 * 1000, dailyCap: 10 },
   pro: { intervalMs: 5 * 60 * 1000, dailyCap: 25 },
-  agency: { intervalMs: 3 * 60 * 1000, dailyCap: 50 }
-}
+  agency: { intervalMs: 3 * 60 * 1000, dailyCap: 50 },
+};
 ```
 
 **API Endpoint:**
+
 ```typescript
 // packages/workers/api/src/routes/psi.ts
-import { Hono } from 'hono'
+import { Hono } from 'hono';
 
-const psi = new Hono()
+const psi = new Hono();
 
 psi.post('/scan', async (c) => {
-  const { site_id, device } = await c.req.json()
-  const agency = await getAgencyForSite(c.env, site_id)
-  
+  const { site_id, device } = await c.req.json();
+  const agency = await getAgencyForSite(c.env, site_id);
+
   // Check rate limit (KV)
-  const rateLimitKey = `psi:ratelimit:${agency.id}:${Math.floor(Date.now() / 60000)}`
-  const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey)
-  
-  const limit = PSI_RATE_LIMITS[agency.tier]
-  
+  const rateLimitKey = `psi:ratelimit:${agency.id}:${Math.floor(Date.now() / 60000)}`;
+  const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey);
+
+  const limit = PSI_RATE_LIMITS[agency.tier];
+
   if (count && parseInt(count) >= 1) {
-    return c.json({
-      error: 'Rate limit exceeded',
-      retryAfter: limit.intervalMs / 1000
-    }, 429)
+    return c.json(
+      {
+        error: 'Rate limit exceeded',
+        retryAfter: limit.intervalMs / 1000,
+      },
+      429
+    );
   }
-  
+
   // Check daily cap
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0];
   const { data: usage } = await supabase
     .from('usage_counters')
     .select('used, cap')
     .eq('agency_id', agency.id)
     .eq('metric', 'psi')
     .eq('month', today)
-    .single()
-  
+    .single();
+
   if (usage && usage.used >= limit.dailyCap) {
-    return c.json({ error: 'Daily cap reached' }, 429)
+    return c.json({ error: 'Daily cap reached' }, 429);
   }
-  
+
   // Check cache
-  const cached = await checkCache(c.env, site_id, device, limit.intervalMs)
+  const cached = await checkCache(c.env, site_id, device, limit.intervalMs);
   if (cached) {
-    return c.json({ status: 'cached', result: cached })
+    return c.json({ status: 'cached', result: cached });
   }
-  
+
   // Enqueue scan
-  const jobId = crypto.randomUUID()
-  await enqueueScan(c.env, { jobId, site_id, device })
-  
+  const jobId = crypto.randomUUID();
+  await enqueueScan(c.env, { jobId, site_id, device });
+
   // Increment counters
-  await c.env.RATE_LIMIT_KV.put(rateLimitKey, '1', { expirationTtl: limit.intervalMs / 1000 })
-  await incrementUsage(c.env, agency.id, 'psi')
-  
-  return c.json({
-    status: 'queued',
-    jobId,
-    estimatedCompletionSeconds: 30
-  }, 202)
-})
+  await c.env.RATE_LIMIT_KV.put(rateLimitKey, '1', { expirationTtl: limit.intervalMs / 1000 });
+  await incrementUsage(c.env, agency.id, 'psi');
+
+  return c.json(
+    {
+      status: 'queued',
+      jobId,
+      estimatedCompletionSeconds: 30,
+    },
+    202
+  );
+});
 
 psi.get('/status/:jobId', async (c) => {
-  const jobId = c.req.param('jobId')
-  const job = await getJobStatus(c.env, jobId)
-  
-  if (!job) {
-    return c.json({ error: 'Job not found' }, 404)
-  }
-  
-  return c.json(job)
-})
+  const jobId = c.req.param('jobId');
+  const job = await getJobStatus(c.env, jobId);
 
-export default psi
+  if (!job) {
+    return c.json({ error: 'Job not found' }, 404);
+  }
+
+  return c.json(job);
+});
+
+export default psi;
 ```
 
 **Frontend Component:**
+
 ```vue
 <template>
   <div class="psi-scan">
-    <button 
-      @click="triggerScan" 
-      :disabled="isScanning || countdown > 0"
-      class="btn-primary"
-    >
+    <button @click="triggerScan" :disabled="isScanning || countdown > 0" class="btn-primary">
       <span v-if="countdown > 0">Next scan in {{ formatCountdown(countdown) }}</span>
       <span v-else-if="isScanning">Scanning...</span>
       <span v-else>Run Scan</span>
     </button>
-    
-    <div v-if="isScanning" class="progress">
-      Scanning... {{ progress }}%
-    </div>
+
+    <div v-if="isScanning" class="progress">Scanning... {{ progress }}%</div>
   </div>
 </template>
 
@@ -302,26 +308,26 @@ const jobId = ref<string>()
 
 async function triggerScan() {
   isScanning.value = true
-  
+
   try {
     const response = await $fetch('/api/psi/scan', {
       method: 'POST',
       body: { site_id: props.siteId, device: 'both' }
     })
-    
+
     if (response.status === 'cached') {
       // Show cached result
       emit('scanComplete', response.result)
       isScanning.value = false
       return
     }
-    
+
     jobId.value = response.jobId
-    
+
     // Poll for completion
     const interval = setInterval(async () => {
       const status = await $fetch(`/api/psi/status/${jobId.value}`)
-      
+
       if (status.status === 'completed') {
         clearInterval(interval)
         emit('scanComplete', status.result)
@@ -373,13 +379,14 @@ function startCountdown() {
 #### Technical Notes
 
 **Chart Component:**
+
 ```vue
 <template>
   <div class="psi-trends">
     <div class="controls">
       <div class="time-range">
-        <button 
-          v-for="range in timeRanges" 
+        <button
+          v-for="range in timeRanges"
           :key="range.value"
           @click="selectedRange = range.value"
           :class="{ active: selectedRange === range.value }"
@@ -387,9 +394,9 @@ function startCountdown() {
           {{ range.label }}
         </button>
       </div>
-      
+
       <div class="device-filter">
-        <button 
+        <button
           v-for="device in devices"
           :key="device"
           @click="toggleDevice(device)"
@@ -399,7 +406,7 @@ function startCountdown() {
         </button>
       </div>
     </div>
-    
+
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
@@ -436,7 +443,7 @@ let chart: Chart
 
 onMounted(() => {
   if (!chartCanvas.value || !trendsData.value) return
-  
+
   chart = new Chart(chartCanvas.value, {
     type: 'line',
     data: {
@@ -497,30 +504,29 @@ onMounted(() => {
 ```
 
 **Data Cleanup Worker:**
+
 ```typescript
 // packages/workers/cleanup/src/psi-cleanup.ts
 export async function cleanupPSIData(env: Env) {
-  const agencies = await supabase
-    .from('agencies')
-    .select('id, tier')
-  
+  const agencies = await supabase.from('agencies').select('id, tier');
+
   for (const agency of agencies) {
     const retentionDays = {
       base: 30,
       pro: 90,
-      agency: 180
-    }[agency.tier]
-    
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - retentionDays)
-    
+      agency: 180,
+    }[agency.tier];
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
     const { count } = await supabase
       .from('psi_results')
       .delete()
       .eq('agency_id', agency.id)
-      .lt('scanned_at', cutoffDate.toISOString())
-    
-    console.log(`Deleted ${count} old PSI results for agency ${agency.id}`)
+      .lt('scanned_at', cutoffDate.toISOString());
+
+    console.log(`Deleted ${count} old PSI results for agency ${agency.id}`);
   }
 }
 ```
@@ -548,6 +554,7 @@ export async function cleanupPSIData(env: Env) {
 #### Technical Notes
 
 **Opportunities Extraction:**
+
 ```typescript
 function extractOpportunities(audits: any) {
   const opportunityIds = [
@@ -560,14 +567,14 @@ function extractOpportunities(audits: any) {
     'unminified-javascript',
     'efficient-animated-content',
     'duplicated-javascript',
-    'legacy-javascript'
-  ]
-  
+    'legacy-javascript',
+  ];
+
   return opportunityIds
-    .map(id => {
-      const audit = audits[id]
-      if (!audit || audit.score === 1) return null
-      
+    .map((id) => {
+      const audit = audits[id];
+      if (!audit || audit.score === 1) return null;
+
       return {
         id,
         title: audit.title,
@@ -576,31 +583,28 @@ function extractOpportunities(audits: any) {
         numericValue: audit.numericValue,
         numericUnit: audit.numericUnit,
         displayValue: audit.displayValue,
-        details: audit.details?.items || []
-      }
+        details: audit.details?.items || [],
+      };
     })
     .filter(Boolean)
     .sort((a, b) => b.numericValue - a.numericValue)
-    .slice(0, 5)
+    .slice(0, 5);
 }
 ```
 
 **Opportunities Component:**
+
 ```vue
 <template>
   <div class="opportunities">
     <h3>Optimization Opportunities</h3>
-    
+
     <div v-if="opportunities.length === 0" class="empty-state">
       <p>No major opportunities detected. Great job! 🎉</p>
     </div>
-    
+
     <div v-else class="opportunity-list">
-      <div 
-        v-for="opp in opportunities" 
-        :key="opp.id"
-        class="opportunity-card"
-      >
+      <div v-for="opp in opportunities" :key="opp.id" class="opportunity-card">
         <div class="opportunity-header" @click="toggleExpanded(opp.id)">
           <div class="opportunity-info">
             <h4>{{ opp.title }}</h4>
@@ -614,21 +618,19 @@ function extractOpportunities(audits: any) {
             <ScoreBadge :score="opp.score" />
           </div>
         </div>
-        
+
         <div v-if="expanded === opp.id" class="opportunity-details">
           <div v-if="opp.details.length > 0" class="affected-resources">
             <h5>Affected Resources:</h5>
             <ul>
               <li v-for="item in opp.details" :key="item.url">
-                {{ item.url }} 
-                <span v-if="item.wastedBytes">
-                  ({{ formatBytes(item.wastedBytes) }})
-                </span>
+                {{ item.url }}
+                <span v-if="item.wastedBytes"> ({{ formatBytes(item.wastedBytes) }}) </span>
               </li>
             </ul>
           </div>
-          
-          <a 
+
+          <a
             :href="`https://developer.chrome.com/docs/lighthouse/performance/${opp.id}/`"
             target="_blank"
             class="learn-more"
@@ -680,38 +682,40 @@ function formatBytes(bytes: number) {
 #### Technical Notes
 
 **Screenshot Extraction & Upload:**
+
 ```typescript
 async function extractAndUploadScreenshot(
-  psiResult: any, 
-  siteId: string, 
+  psiResult: any,
+  siteId: string,
   device: string,
   env: Env
 ): Promise<string | null> {
   try {
-    const screenshotAudit = psiResult.lighthouseResult.audits['final-screenshot']
-    if (!screenshotAudit?.details?.data) return null
-    
-    const base64Data = screenshotAudit.details.data.replace(/^data:image\/\w+;base64,/, '')
-    const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-    
-    const timestamp = Date.now()
-    const key = `psi-screenshots/${siteId}/${timestamp}_${device}.jpg`
-    
+    const screenshotAudit = psiResult.lighthouseResult.audits['final-screenshot'];
+    if (!screenshotAudit?.details?.data) return null;
+
+    const base64Data = screenshotAudit.details.data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+    const timestamp = Date.now();
+    const key = `psi-screenshots/${siteId}/${timestamp}_${device}.jpg`;
+
     await env.R2_BUCKET.put(key, buffer, {
       httpMetadata: {
-        contentType: 'image/jpeg'
-      }
-    })
-    
-    return `https://cdn.websitemage.com/${key}`
+        contentType: 'image/jpeg',
+      },
+    });
+
+    return `https://cdn.websitemage.com/${key}`;
   } catch (error) {
-    console.error('Screenshot upload failed:', error)
-    return null
+    console.error('Screenshot upload failed:', error);
+    return null;
   }
 }
 ```
 
 **Screenshot Comparison Component:**
+
 ```vue
 <template>
   <div class="screenshot-comparison">
@@ -720,20 +724,16 @@ async function extractAndUploadScreenshot(
         <h4>Previous Scan</h4>
         <img :src="previousScreenshot" alt="Previous scan" />
         <div class="metadata">
-          {{ formatDate(previousScan.scanned_at) }} - 
-          Score: {{ previousScan.performance_score }}
+          {{ formatDate(previousScan.scanned_at) }} - Score: {{ previousScan.performance_score }}
         </div>
       </div>
-      
+
       <div class="screenshot-panel">
         <h4>Current Scan</h4>
         <img :src="currentScreenshot" alt="Current scan" />
         <div class="metadata">
-          {{ formatDate(currentScan.scanned_at) }} - 
-          Score: {{ currentScan.performance_score }}
-          <span :class="scoreDiffClass">
-            {{ scoreDiff > 0 ? '+' : '' }}{{ scoreDiff }}
-          </span>
+          {{ formatDate(currentScan.scanned_at) }} - Score: {{ currentScan.performance_score }}
+          <span :class="scoreDiffClass"> {{ scoreDiff > 0 ? '+' : '' }}{{ scoreDiff }} </span>
         </div>
       </div>
     </div>
@@ -749,7 +749,7 @@ const props = defineProps<{
 const currentScreenshot = computed(() => props.currentScan.screenshot_url)
 const previousScreenshot = computed(() => props.previousScan.screenshot_url)
 
-const scoreDiff = computed(() => 
+const scoreDiff = computed(() =>
   props.currentScan.performance_score - props.previousScan.performance_score
 )
 
@@ -780,15 +780,18 @@ const scoreDiffClass = computed(() => ({
 ## Dependencies & Prerequisites
 
 **Requires Epics 1 & 2 Completion:**
+
 - Sites table with monitored domains
 - Tier-based feature gating
 - Dashboard infrastructure
 
 **New Services Needed:**
+
 - Google PageSpeed Insights API key (free, 25k queries/day)
 - Cloudflare R2 bucket for screenshots (optional)
 
 **After Epic 3 Completion:**
+
 - Performance monitoring operational
 - Historical trends available
 - Optimization guidance provided

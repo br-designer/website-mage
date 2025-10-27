@@ -50,6 +50,7 @@ This epic delivers the foundational monitoring capabilities:
 #### Technical Notes
 
 **Database Schema Addition:**
+
 ```sql
 ALTER TABLE public.sites ADD COLUMN IF NOT EXISTS expected_keyword TEXT;
 ALTER TABLE public.sites ADD COLUMN IF NOT EXISTS settings_json JSONB NOT NULL DEFAULT '{}';
@@ -59,20 +60,19 @@ CREATE INDEX idx_sites_deleted ON sites(deleted_at) WHERE deleted_at IS NULL;
 ```
 
 **Sites List Page Component:**
+
 ```vue
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">Monitored Sites</h1>
-      <button @click="showAddModal = true" class="btn-primary">
-        Add Site
-      </button>
+      <button @click="showAddModal = true" class="btn-primary">Add Site</button>
     </div>
-    
+
     <div v-if="sites.length === 0" class="empty-state">
       <p>Add your first site to start monitoring</p>
     </div>
-    
+
     <table v-else class="w-full">
       <thead>
         <tr>
@@ -94,24 +94,21 @@ CREATE INDEX idx_sites_deleted ON sites(deleted_at) WHERE deleted_at IS NULL;
         </tr>
       </tbody>
     </table>
-    
-    <SiteModal 
-      v-if="showAddModal" 
-      @close="showAddModal = false"
-      @save="handleSave"
-    />
+
+    <SiteModal v-if="showAddModal" @close="showAddModal = false" @save="handleSave" />
   </div>
 </template>
 ```
 
 **Form Validation (Zod):**
+
 ```typescript
-import { z } from 'zod'
+import { z } from 'zod';
 
 export const SiteSchema = z.object({
   domain: z.string().url('Must be a valid URL starting with http:// or https://'),
   expected_keyword: z.string().max(100).optional(),
-})
+});
 ```
 
 ---
@@ -137,6 +134,7 @@ export const SiteSchema = z.object({
 #### Technical Notes
 
 **Worker Structure:**
+
 ```
 packages/workers/uptime/
 ├── src/
@@ -149,6 +147,7 @@ packages/workers/uptime/
 ```
 
 **wrangler.toml:**
+
 ```toml
 name = "websitemage-uptime"
 main = "src/index.ts"
@@ -162,65 +161,67 @@ SUPABASE_URL = "https://your-project.supabase.co"
 ```
 
 **Checker Logic (checker.ts):**
+
 ```typescript
 export async function checkSite(site: Site, region: string) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
-  
-  const startTime = Date.now()
-  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  const startTime = Date.now();
+
   try {
     const response = await fetch(site.domain, {
       signal: controller.signal,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'WebsiteMage-Monitor/1.0'
-      }
-    })
-    
-    clearTimeout(timeoutId)
-    const ttfb = Date.now() - startTime
-    
-    let ok = response.status >= 200 && response.status < 300
-    
+        'User-Agent': 'WebsiteMage-Monitor/1.0',
+      },
+    });
+
+    clearTimeout(timeoutId);
+    const ttfb = Date.now() - startTime;
+
+    let ok = response.status >= 200 && response.status < 300;
+
     // Keyword validation if configured
     if (ok && site.expected_keyword) {
-      const body = await response.text()
-      ok = body.includes(site.expected_keyword)
+      const body = await response.text();
+      ok = body.includes(site.expected_keyword);
     }
-    
+
     return {
       http_status: response.status,
       ttfb_ms: ttfb,
       ok,
-      err: ok ? null : `HTTP ${response.status}`
-    }
+      err: ok ? null : `HTTP ${response.status}`,
+    };
   } catch (error) {
-    clearTimeout(timeoutId)
+    clearTimeout(timeoutId);
     return {
       http_status: null,
       ttfb_ms: Date.now() - startTime,
       ok: false,
-      err: error.message
-    }
+      err: error.message,
+    };
   }
 }
 
 export async function checkWithRetries(site: Site, region: string, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const result = await checkSite(site, region)
-    
+    const result = await checkSite(site, region);
+
     if (result.ok || attempt === maxRetries) {
-      return { ...result, attempts: attempt }
+      return { ...result, attempts: attempt };
     }
-    
+
     // Wait 2s between retries
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 }
 ```
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.uptime_checks (
   id BIGSERIAL PRIMARY KEY,
@@ -260,56 +261,56 @@ CREATE INDEX idx_uptime_agency_time ON uptime_checks(agency_id, checked_at DESC)
 #### Technical Notes
 
 **Multi-Region Execution:**
+
 ```typescript
 // regions.ts
-export const REGIONS = ['us-east', 'eu-west', 'ap-sg']
+export const REGIONS = ['us-east', 'eu-west', 'ap-sg'];
 
 // index.ts
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    const sites = await fetchActiveSites(env)
-    
+    const sites = await fetchActiveSites(env);
+
     for (const site of sites) {
       // Execute checks in parallel across all regions
       const regionalChecks = await Promise.allSettled(
-        REGIONS.map(region => checkWithRetries(site, region))
-      )
-      
-      const results = regionalChecks
-        .filter(r => r.status === 'fulfilled')
-        .map(r => r.value)
-      
+        REGIONS.map((region) => checkWithRetries(site, region))
+      );
+
+      const results = regionalChecks.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+
       // Majority voting
-      const failedCount = results.filter(r => !r.ok).length
-      const totalResponded = results.length
-      
-      let overallStatus: boolean
+      const failedCount = results.filter((r) => !r.ok).length;
+      const totalResponded = results.length;
+
+      let overallStatus: boolean;
       if (totalResponded < 2) {
         // Not enough regions responded, inconclusive
-        overallStatus = true // Assume OK to avoid false positive
+        overallStatus = true; // Assume OK to avoid false positive
       } else {
         // Majority voting: ≥50% must fail
-        overallStatus = failedCount < Math.ceil(totalResponded / 2)
+        overallStatus = failedCount < Math.ceil(totalResponded / 2);
       }
-      
+
       // Store all regional results
       for (const result of results) {
         await insertUptimeCheck(env, {
           site_id: site.id,
           agency_id: site.agency_id,
           region: result.region,
-          ...result
-        })
+          ...result,
+        });
       }
-      
+
       // Handle incident logic based on overall status
-      await handleIncidentLogic(env, site, overallStatus)
+      await handleIncidentLogic(env, site, overallStatus);
     }
-  }
-}
+  },
+};
 ```
 
 **Regional Display Component:**
+
 ```vue
 <template>
   <div class="regional-checks">
@@ -349,6 +350,7 @@ export default {
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.uptime_incidents (
   id BIGSERIAL PRIMARY KEY,
@@ -364,32 +366,29 @@ CREATE INDEX idx_incidents_site_opened ON uptime_incidents(site_id, opened_at DE
 ```
 
 **Incident Management Logic:**
+
 ```typescript
 // incidents.ts
-export async function handleIncidentLogic(
-  env: Env, 
-  site: Site, 
-  currentCheckOk: boolean
-) {
+export async function handleIncidentLogic(env: Env, site: Site, currentCheckOk: boolean) {
   // Get last 3 checks
-  const recentChecks = await getRecentChecks(env, site.id, 3)
-  
+  const recentChecks = await getRecentChecks(env, site.id, 3);
+
   // Check for open incident
-  const openIncident = await getOpenIncident(env, site.id)
-  
+  const openIncident = await getOpenIncident(env, site.id);
+
   if (!currentCheckOk) {
     // Current check failed
-    const consecutiveFailures = recentChecks.every(check => !check.ok)
-    
+    const consecutiveFailures = recentChecks.every((check) => !check.ok);
+
     if (consecutiveFailures && recentChecks.length >= 3 && !openIncident) {
       // Open new incident after 3 consecutive failures
       await openNewIncident(env, {
         site_id: site.id,
         agency_id: site.agency_id,
         reason: recentChecks[0].err || `HTTP ${recentChecks[0].http_status}`,
-        opened_at: new Date().toISOString()
-      })
-      
+        opened_at: new Date().toISOString(),
+      });
+
       // Trigger alert (Epic 5)
       // await triggerAlert(env, site, 'down')
     }
@@ -397,8 +396,8 @@ export async function handleIncidentLogic(
     // Current check succeeded
     if (openIncident) {
       // Close the incident
-      await closeIncident(env, openIncident.id)
-      
+      await closeIncident(env, openIncident.id);
+
       // Trigger recovery alert (Epic 5)
       // await triggerAlert(env, site, 'recovered')
     }
@@ -429,43 +428,45 @@ export async function handleIncidentLogic(
 #### Technical Notes
 
 **Uptime Calculation Composable:**
+
 ```typescript
 // composables/useUptime.ts
 export function useUptime(siteId: string) {
-  const supabase = useSupabaseClient()
-  
-  const uptime = ref<number>(0)
-  const loading = ref(true)
-  
+  const supabase = useSupabaseClient();
+
+  const uptime = ref<number>(0);
+  const loading = ref(true);
+
   async function fetchUptime() {
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const { data: checks } = await supabase
       .from('uptime_checks')
       .select('ok')
       .eq('site_id', siteId)
-      .gte('checked_at', thirtyDaysAgo.toISOString())
-    
+      .gte('checked_at', thirtyDaysAgo.toISOString());
+
     if (checks && checks.length > 0) {
-      const successfulChecks = checks.filter(c => c.ok).length
-      uptime.value = (successfulChecks / checks.length) * 100
+      const successfulChecks = checks.filter((c) => c.ok).length;
+      uptime.value = (successfulChecks / checks.length) * 100;
     }
-    
-    loading.value = false
+
+    loading.value = false;
   }
-  
+
   // Auto-refresh every 60 seconds
-  const interval = setInterval(fetchUptime, 60000)
-  onUnmounted(() => clearInterval(interval))
-  
-  fetchUptime()
-  
-  return { uptime, loading }
+  const interval = setInterval(fetchUptime, 60000);
+  onUnmounted(() => clearInterval(interval));
+
+  fetchUptime();
+
+  return { uptime, loading };
 }
 ```
 
 **Uptime Chart Component:**
+
 ```vue
 <template>
   <div class="uptime-chart">
@@ -483,7 +484,7 @@ const { data: checksData } = await useFetch(`/api/sites/${props.siteId}/uptime-h
 
 onMounted(() => {
   if (!chartCanvas.value) return
-  
+
   new Chart(chartCanvas.value, {
     type: 'line',
     data: {
@@ -531,53 +532,56 @@ onMounted(() => {
 #### Technical Notes
 
 **SSL Extraction Logic:**
+
 ```typescript
 // checker.ts (addition)
 export async function extractSSLInfo(domain: string): Promise<SSLInfo | null> {
   try {
-    const url = new URL(domain)
-    if (url.protocol !== 'https:') return null
-    
+    const url = new URL(domain);
+    if (url.protocol !== 'https:') return null;
+
     // Note: Cloudflare Workers don't have direct access to SSL cert info
     // Alternative: Use external API or check via separate service
     // For MVP, use a workaround with fetch and response headers
-    
-    const response = await fetch(domain, { method: 'HEAD' })
+
+    const response = await fetch(domain, { method: 'HEAD' });
     // Extract from response headers if available
     // Or use external SSL checker API
-    
+
     return {
       expiresAt: '2025-12-31T23:59:59Z', // Placeholder
-      daysRemaining: 365
-    }
+      daysRemaining: 365,
+    };
   } catch (error) {
-    return null
+    return null;
   }
 }
 ```
 
 **DNS Check Logic:**
+
 ```typescript
 export async function checkDNS(domain: string): Promise<boolean> {
   try {
-    const url = new URL(domain)
-    const hostname = url.hostname
-    
+    const url = new URL(domain);
+    const hostname = url.hostname;
+
     // Simple check: if HTTP request succeeds, DNS resolved
     // More robust: use DNS over HTTPS API
     const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${hostname}`, {
-      headers: { 'accept': 'application/dns-json' }
-    })
-    
-    const data = await response.json()
-    return data.Status === 0 && data.Answer && data.Answer.length > 0
+      headers: { accept: 'application/dns-json' },
+    });
+
+    const data = await response.json();
+    return data.Status === 0 && data.Answer && data.Answer.length > 0;
   } catch (error) {
-    return false
+    return false;
   }
 }
 ```
 
 **Tier-Based Feature Display:**
+
 ```vue
 <template>
   <div class="ssl-dns-status">
@@ -615,26 +619,28 @@ export async function checkDNS(domain: string): Promise<boolean> {
 #### Technical Notes
 
 **Tier Constants:**
+
 ```typescript
 // packages/shared/src/constants/tiers.ts
 export const CHECK_INTERVALS = {
-  base: 10 * 60 * 1000,    // 10 minutes in ms
-  pro: 5 * 60 * 1000,      // 5 minutes
-  agency: 5 * 60 * 1000    // 5 minutes
-}
+  base: 10 * 60 * 1000, // 10 minutes in ms
+  pro: 5 * 60 * 1000, // 5 minutes
+  agency: 5 * 60 * 1000, // 5 minutes
+};
 
 export function shouldCheckSite(site: Site, agency: Agency): boolean {
-  const lastCheck = site.last_checked_at
-  if (!lastCheck) return true // First check
-  
-  const interval = CHECK_INTERVALS[agency.tier]
-  const nextCheckDue = new Date(lastCheck).getTime() + interval
-  
-  return Date.now() >= nextCheckDue
+  const lastCheck = site.last_checked_at;
+  if (!lastCheck) return true; // First check
+
+  const interval = CHECK_INTERVALS[agency.tier];
+  const nextCheckDue = new Date(lastCheck).getTime() + interval;
+
+  return Date.now() >= nextCheckDue;
 }
 ```
 
 **Worker Filtering:**
+
 ```typescript
 export default {
   async scheduled(event, env, ctx) {
@@ -642,22 +648,20 @@ export default {
     const sitesWithAgencies = await supabase
       .from('sites')
       .select('*, agencies(*)')
-      .is('deleted_at', null)
-    
+      .is('deleted_at', null);
+
     // Filter sites due for check
-    const sitesToCheck = sitesWithAgencies.filter(site => 
-      shouldCheckSite(site, site.agencies)
-    )
-    
+    const sitesToCheck = sitesWithAgencies.filter((site) => shouldCheckSite(site, site.agencies));
+
     console.log(`Checking ${sitesToCheck.length} sites across tiers`, {
-      base: sitesToCheck.filter(s => s.agencies.tier === 'base').length,
-      pro: sitesToCheck.filter(s => s.agencies.tier === 'pro').length,
-      agency: sitesToCheck.filter(s => s.agencies.tier === 'agency').length
-    })
-    
+      base: sitesToCheck.filter((s) => s.agencies.tier === 'base').length,
+      pro: sitesToCheck.filter((s) => s.agencies.tier === 'pro').length,
+      agency: sitesToCheck.filter((s) => s.agencies.tier === 'agency').length,
+    });
+
     // Execute checks...
-  }
-}
+  },
+};
 ```
 
 ---
@@ -679,16 +683,19 @@ export default {
 ## Dependencies & Prerequisites
 
 **Requires Epic 1 Completion:**
+
 - Monorepo setup
 - Supabase with core schema
 - Cloudflare Workers infrastructure
 - Authentication working
 
 **New Services Needed:**
+
 - Cloudflare Cron Triggers (free tier)
 - DNS over HTTPS API access (Cloudflare DNS)
 
 **After Epic 2 Completion:**
+
 - Core monitoring operational
 - Sites being checked every 5-10 minutes
 - Incident detection working

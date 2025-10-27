@@ -48,6 +48,7 @@ This epic delivers the foundational infrastructure required for all subsequent d
 #### Technical Notes
 
 **Source Tree Structure:**
+
 ```
 website-mage/
 ├── packages/
@@ -62,6 +63,7 @@ website-mage/
 ```
 
 **Key Technologies:**
+
 - PNPM 8.15.0 (workspace management)
 - Turborepo 1.12.0 (build orchestration)
 - TypeScript 5.3.3 (strict mode)
@@ -92,6 +94,7 @@ website-mage/
 #### Technical Notes
 
 **Database Schema (Core Tables):**
+
 ```sql
 -- Enums
 CREATE TYPE agency_tier AS ENUM ('base', 'pro', 'agency', 'enterprise_future');
@@ -128,6 +131,7 @@ CREATE TABLE public.sites (
 ```
 
 **RLS Helper Function:**
+
 ```sql
 CREATE OR REPLACE FUNCTION is_member_of(ag_id UUID) RETURNS BOOLEAN
 LANGUAGE SQL STABLE AS $$
@@ -139,11 +143,13 @@ $$;
 ```
 
 **Seed Data (dev/staging only):**
+
 - 1 test agency: `name='Test Agency'`, `tier='pro'`
 - 1 admin user: linked via OAuth (use your test Google account)
 - 3 demo sites: `example.com`, `test.com`, `demo.com`
 
 **Environment Variables:**
+
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY` (Workers only)
@@ -173,6 +179,7 @@ $$;
 #### Technical Notes
 
 **Nuxt Structure:**
+
 ```
 packages/web/
 ├── app/
@@ -206,6 +213,7 @@ packages/web/
 ```
 
 **Key Dependencies:**
+
 ```json
 {
   "dependencies": {
@@ -223,6 +231,7 @@ packages/web/
 ```
 
 **TailwindCSS Custom Colors:**
+
 ```js
 // tailwind.config.ts
 export default {
@@ -231,29 +240,30 @@ export default {
       colors: {
         primary: {
           50: '#f5f3ff',
-          500: '#8b5cf6',  // Purple
+          500: '#8b5cf6', // Purple
           600: '#7c3aed',
         },
         status: {
-          success: '#10b981',  // Green
-          warning: '#f59e0b',  // Yellow
-          error: '#ef4444',    // Red
-        }
-      }
-    }
-  }
-}
+          success: '#10b981', // Green
+          warning: '#f59e0b', // Yellow
+          error: '#ef4444', // Red
+        },
+      },
+    },
+  },
+};
 ```
 
 **Middleware (auth.ts):**
+
 ```typescript
 export default defineNuxtRouteMiddleware((to, from) => {
-  const user = useSupabaseUser()
-  
+  const user = useSupabaseUser();
+
   if (!user.value && to.path !== '/login') {
-    return navigateTo('/login')
+    return navigateTo('/login');
   }
-})
+});
 ```
 
 **Architecture Reference:** See `docs/architecture.md` - Components (Nuxt Frontend) section
@@ -281,52 +291,49 @@ export default defineNuxtRouteMiddleware((to, from) => {
 #### Technical Notes
 
 **Supabase OAuth Configuration:**
+
 - Configure in Supabase Dashboard → Authentication → Providers
 - Enable: Google, Microsoft (Azure AD), GitHub
-- Redirect URLs: 
+- Redirect URLs:
   - Dev: `http://localhost:3000/auth/callback`
   - Staging: `https://staging.websitemage.com/auth/callback`
   - Prod: `https://app.websitemage.com/auth/callback`
 
 **Login Page Component:**
+
 ```vue
 <template>
   <div class="flex min-h-screen items-center justify-center">
     <div class="w-full max-w-md space-y-4">
       <h1 class="text-2xl font-bold">Welcome to Website Mage</h1>
-      
-      <button @click="signInWithGoogle" class="btn-primary">
-        Sign in with Google
-      </button>
-      
-      <button @click="signInWithMicrosoft" class="btn-primary">
-        Sign in with Microsoft
-      </button>
-      
-      <button @click="signInWithGitHub" class="btn-primary">
-        Sign in with GitHub
-      </button>
+
+      <button @click="signInWithGoogle" class="btn-primary">Sign in with Google</button>
+
+      <button @click="signInWithMicrosoft" class="btn-primary">Sign in with Microsoft</button>
+
+      <button @click="signInWithGitHub" class="btn-primary">Sign in with GitHub</button>
     </div>
   </div>
 </template>
 
 <script setup>
-const supabase = useSupabaseClient()
+const supabase = useSupabaseClient();
 
 async function signInWithGoogle() {
   await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: '/dashboard' }
-  })
+    options: { redirectTo: '/dashboard' },
+  });
 }
 // Similar for Microsoft and GitHub
 </script>
 ```
 
 **Post-Login Agency Creation Logic:**
+
 ```typescript
 // In auth callback handler or middleware
-const user = useSupabaseUser()
+const user = useSupabaseUser();
 
 if (user.value) {
   // Check if user has agency
@@ -334,27 +341,25 @@ if (user.value) {
     .from('agency_members')
     .select('agency_id')
     .eq('user_id', user.value.id)
-    .single()
-  
+    .single();
+
   if (!membership) {
     // Create default agency
     const { data: agency } = await supabase
       .from('agencies')
-      .insert({ 
+      .insert({
         name: `${user.value.user_metadata.name}'s Agency`,
-        tier: 'base'
+        tier: 'base',
       })
       .select()
-      .single()
-    
+      .single();
+
     // Create membership
-    await supabase
-      .from('agency_members')
-      .insert({
-        agency_id: agency.id,
-        user_id: user.value.id,
-        role: 'admin'
-      })
+    await supabase.from('agency_members').insert({
+      agency_id: agency.id,
+      user_id: user.value.id,
+      role: 'admin',
+    });
   }
 }
 ```
@@ -384,6 +389,7 @@ if (user.value) {
 #### Technical Notes
 
 **Worker Structure:**
+
 ```
 packages/workers/api/
 ├── src/
@@ -400,6 +406,7 @@ packages/workers/api/
 ```
 
 **wrangler.toml:**
+
 ```toml
 name = "websitemage-api"
 main = "src/index.ts"
@@ -420,73 +427,81 @@ SUPABASE_URL = "https://your-project.supabase.co"
 ```
 
 **Health Endpoint (routes/health.ts):**
-```typescript
-import { Hono } from 'hono'
 
-const health = new Hono()
+```typescript
+import { Hono } from 'hono';
+
+const health = new Hono();
 
 health.get('/', (c) => {
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'websitemage-api',
-    version: '1.0.0'
-  })
-})
+    version: '1.0.0',
+  });
+});
 
-export default health
+export default health;
 ```
 
 **Rate Limiting Middleware:**
+
 ```typescript
 // middleware/rateLimit.ts
 export async function rateLimit(c, next) {
-  const agencyId = c.req.header('X-Agency-ID') || 'anonymous'
-  const key = `ratelimit:${agencyId}:${Math.floor(Date.now() / 60000)}`
-  
-  const count = await c.env.RATE_LIMIT_KV.get(key)
-  const limit = 60 // 60 requests per minute
-  
+  const agencyId = c.req.header('X-Agency-ID') || 'anonymous';
+  const key = `ratelimit:${agencyId}:${Math.floor(Date.now() / 60000)}`;
+
+  const count = await c.env.RATE_LIMIT_KV.get(key);
+  const limit = 60; // 60 requests per minute
+
   if (count && parseInt(count) >= limit) {
     return c.json({ error: 'Rate limit exceeded' }, 429, {
-      'Retry-After': '60'
-    })
+      'Retry-After': '60',
+    });
   }
-  
-  await c.env.RATE_LIMIT_KV.put(key, String((parseInt(count || '0') + 1)), {
-    expirationTtl: 60
-  })
-  
-  await next()
+
+  await c.env.RATE_LIMIT_KV.put(key, String(parseInt(count || '0') + 1), {
+    expirationTtl: 60,
+  });
+
+  await next();
 }
 ```
 
 **Main Router (index.ts):**
+
 ```typescript
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import health from './routes/health'
-import { rateLimit } from './middleware/rateLimit'
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import health from './routes/health';
+import { rateLimit } from './middleware/rateLimit';
 
-const app = new Hono()
+const app = new Hono();
 
-app.use('*', cors({
-  origin: ['https://app.websitemage.com', 'http://localhost:3000'],
-  credentials: true
-}))
+app.use(
+  '*',
+  cors({
+    origin: ['https://app.websitemage.com', 'http://localhost:3000'],
+    credentials: true,
+  })
+);
 
-app.use('*', rateLimit)
+app.use('*', rateLimit);
 
-app.route('/health', health)
+app.route('/health', health);
 
-export default app
+export default app;
 ```
 
 **Key Dependencies:**
+
 - `hono`: ^4.0.0 (lightweight router for Workers)
 - `@supabase/supabase-js`: ^2.39.0
 
 **Deployment:**
+
 ```bash
 cd packages/workers/api
 wrangler deploy
@@ -517,6 +532,7 @@ wrangler deploy
 #### Technical Notes
 
 **GitHub Actions CI Workflow (.github/workflows/ci.yml):**
+
 ```yaml
 name: CI
 
@@ -531,30 +547,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v2
         with:
           version: 8.15.0
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20.11.0'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm lint
-      
+
       - name: Type check
         run: pnpm typecheck
-      
+
       - name: Test
         run: pnpm test
         env:
           CI: true
-      
+
       - name: Build
         run: pnpm build
 
@@ -564,11 +580,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v2
         with:
           version: 8.15.0
-      
+
       - name: Deploy Workers
         run: pnpm --filter "./packages/workers/*" deploy
         env:
@@ -576,6 +592,7 @@ jobs:
 ```
 
 **Netlify Configuration (netlify.toml):**
+
 ```toml
 [build]
   base = "packages/web"
@@ -598,21 +615,25 @@ jobs:
 ```
 
 **Rollback Procedure (docs/ops/rollback.md):**
+
 ```markdown
 # Rollback Procedure
 
 ## Netlify Rollback
+
 1. Go to Netlify dashboard → Deploys
 2. Find last known good deployment
 3. Click "Publish deploy"
 4. Verify on staging/production URL
 
 ## Cloudflare Workers Rollback
+
 1. `cd packages/workers/api`
 2. `wrangler rollback`
 3. Verify: `curl https://api.websitemage.com/health`
 
 ## Database Migration Rollback
+
 1. Identify migration to rollback
 2. `supabase db reset --db-url <STAGING_URL>`
 3. Test thoroughly before production
@@ -643,16 +664,15 @@ jobs:
 #### Technical Notes
 
 **Dashboard Page (pages/dashboard.vue):**
+
 ```vue
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold">
-        Welcome, {{ agency?.name }}
-      </h1>
+      <h1 class="text-3xl font-bold">Welcome, {{ agency?.name }}</h1>
       <Badge :variant="tierColor">{{ agency?.tier }}</Badge>
     </div>
-    
+
     <!-- Health Status Card -->
     <Card>
       <CardHeader>System Health</CardHeader>
@@ -667,7 +687,7 @@ jobs:
         <div v-else>Loading...</div>
       </CardContent>
     </Card>
-    
+
     <!-- Stats Grid -->
     <div class="grid gap-6 md:grid-cols-3">
       <StatCard title="Sites" value="0" />
@@ -679,36 +699,37 @@ jobs:
 
 <script setup>
 definePageMeta({
-  middleware: ['auth']
-})
+  middleware: ['auth'],
+});
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const supabase = useSupabaseClient();
+const user = useSupabaseUser();
 
 // Fetch agency
 const { data: membership } = await supabase
   .from('agency_members')
   .select('agency_id, agencies(*)')
   .eq('user_id', user.value.id)
-  .single()
+  .single();
 
-const agency = membership?.agencies
+const agency = membership?.agencies;
 
 // Fetch health status
-const { data: health } = await useFetch('https://api.websitemage.com/health')
+const { data: health } = await useFetch('https://api.websitemage.com/health');
 
 const tierColor = computed(() => {
   const colors = {
     base: 'gray',
     pro: 'blue',
-    agency: 'purple'
-  }
-  return colors[agency?.tier] || 'gray'
-})
+    agency: 'purple',
+  };
+  return colors[agency?.tier] || 'gray';
+});
 </script>
 ```
 
 **Default Layout (layouts/default.vue):**
+
 ```vue
 <template>
   <div class="flex h-screen">
@@ -718,21 +739,13 @@ const tierColor = computed(() => {
         <h2 class="text-xl font-bold">Website Mage</h2>
       </div>
       <nav class="space-y-1 p-2">
-        <NuxtLink to="/dashboard" class="nav-item">
-          Dashboard
-        </NuxtLink>
-        <NuxtLink to="/sites" class="nav-item">
-          Sites
-        </NuxtLink>
-        <NuxtLink to="/reports" class="nav-item">
-          Reports
-        </NuxtLink>
-        <NuxtLink to="/settings" class="nav-item">
-          Settings
-        </NuxtLink>
+        <NuxtLink to="/dashboard" class="nav-item"> Dashboard </NuxtLink>
+        <NuxtLink to="/sites" class="nav-item"> Sites </NuxtLink>
+        <NuxtLink to="/reports" class="nav-item"> Reports </NuxtLink>
+        <NuxtLink to="/settings" class="nav-item"> Settings </NuxtLink>
       </nav>
     </aside>
-    
+
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto">
       <header class="border-b bg-white p-4">
@@ -759,6 +772,7 @@ const tierColor = computed(() => {
 ```
 
 **Responsive Design Testing:**
+
 - Mobile (375px): Sidebar collapses to hamburger menu
 - Tablet (768px): Sidebar visible, stats grid 2 columns
 - Desktop (1440px): Full layout, stats grid 3 columns
@@ -783,6 +797,7 @@ const tierColor = computed(() => {
 ## Dependencies & Prerequisites
 
 **Before Starting Epic 1:**
+
 - GitHub repository created
 - Cloudflare account with Workers enabled
 - Supabase account (free tier sufficient for dev)
@@ -790,6 +805,7 @@ const tierColor = computed(() => {
 - OAuth app credentials (Google, Microsoft, GitHub)
 
 **Accounts & Services Needed:**
+
 - GitHub (repository)
 - Cloudflare (Workers, KV, R2)
 - Supabase (3 projects: dev, staging, prod)
@@ -797,6 +813,7 @@ const tierColor = computed(() => {
 - Sentry (error tracking)
 
 **After Epic 1 Completion:**
+
 - Foundation ready for Epic 2 (Uptime Monitoring)
 - All core services operational
 - Authentication working

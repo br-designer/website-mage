@@ -29,9 +29,9 @@ The platform provides uptime monitoring, performance insights (PageSpeed / Light
 
 ### Change Log
 
-| Date | Version | Description | Author |
-|------|---------|-------------|--------|
-| 2025-10-26 | 1.0 | Initial PRD creation from comprehensive planning document | Kyle Baker |
+| Date       | Version | Description                                               | Author     |
+| ---------- | ------- | --------------------------------------------------------- | ---------- |
+| 2025-10-26 | 1.0     | Initial PRD creation from comprehensive planning document | Kyle Baker |
 
 ---
 
@@ -1172,8 +1172,8 @@ _Goal:_ Enable white-label branding, client dashboards with per-site access cont
 1. Settings → Audit Log page displays table with columns: Timestamp, User, Action, Target (site/user/billing), Details, IP Address
 2. Table data fetched from `audit_log` table filtered by `agency_id`
 3. Table includes pagination: 50 rows per page
-4. Filters available: Date Range (last 7d/30d/90d/custom), Action Type (dropdown: all | site.* | team.* | billing.* | export.*), User (dropdown: all | specific user)
-5. Action types logged: site.create, site.update, site.delete, team.member.invited, team.member.removed, billing.plan.changed, export.csv.*, branding.updated, alert.config.changed
+4. Filters available: Date Range (last 7d/30d/90d/custom), Action Type (dropdown: all | site._ | team._ | billing._ | export._), User (dropdown: all | specific user)
+5. Action types logged: site.create, site.update, site.delete, team.member.invited, team.member.removed, billing.plan.changed, export.csv.\*, branding.updated, alert.config.changed
 6. Details column shows JSON with relevant info (e.g., old/new values for updates)
 7. Clicking row expands to show full details in formatted JSON viewer
 8. Export audit log button: downloads CSV of filtered results (rate limited: 5 per day)
@@ -1218,6 +1218,7 @@ _(To be populated after PM Checklist execution)_
 > You are the Technical Architect for Website Mage. Please create a comprehensive Architecture Document using the Frontend Architecture template if needed, based on this PRD.
 >
 > Key areas to detail:
+>
 > - Nuxt 4 frontend architecture with SSR/SPA hybrid approach
 > - Component structure for dashboard, charts, forms
 > - State management with Pinia
@@ -1227,6 +1228,7 @@ _(To be populated after PM Checklist execution)_
 > - Testing strategy for Vitest unit tests and Playwright E2E
 >
 > Reference:
+>
 > - PRD: `docs/prd.md` (this document)
 > - Tech Stack decisions in Technical Assumptions section
 > - All epic/story acceptance criteria for implementation requirements

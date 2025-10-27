@@ -51,6 +51,7 @@ This epic delivers reliable notification capabilities:
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.alerts_sent (
   id BIGSERIAL PRIMARY KEY,
@@ -69,112 +70,113 @@ CREATE INDEX idx_alerts_agency ON alerts_sent(agency_id, sent_at DESC);
 ```
 
 **Email Templates:**
+
 ```html
 <!-- Site Down Template -->
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Site Down Alert</title>
-</head>
-<body>
-  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-    <h1 style="color: #dc2626;">🚨 Site Down Alert</h1>
-    <p>Your site <strong>{{domain}}</strong> is currently down.</p>
-    
-    <div style="background: #fee2e2; padding: 16px; border-radius: 8px; margin: 16px 0;">
-      <p><strong>Status:</strong> Down</p>
-      <p><strong>Time:</strong> {{timestamp}}</p>
-      <p><strong>Reason:</strong> {{reason}}</p>
+  <head>
+    <meta charset="utf-8" />
+    <title>Site Down Alert</title>
+  </head>
+  <body>
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h1 style="color: #dc2626;">🚨 Site Down Alert</h1>
+      <p>Your site <strong>{{domain}}</strong> is currently down.</p>
+
+      <div style="background: #fee2e2; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p><strong>Status:</strong> Down</p>
+        <p><strong>Time:</strong> {{timestamp}}</p>
+        <p><strong>Reason:</strong> {{reason}}</p>
+      </div>
+
+      <p>
+        <a
+          href="{{incident_link}}"
+          style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;"
+        >
+          View Incident Details
+        </a>
+      </p>
+
+      <p style="color: #6b7280; font-size: 14px; margin-top: 32px;">
+        Website Mage is monitoring your site and will alert you when it recovers.
+      </p>
     </div>
-    
-    <p>
-      <a href="{{incident_link}}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-        View Incident Details
-      </a>
-    </p>
-    
-    <p style="color: #6b7280; font-size: 14px; margin-top: 32px;">
-      Website Mage is monitoring your site and will alert you when it recovers.
-    </p>
-  </div>
-</body>
+  </body>
 </html>
 ```
 
 **Alert Worker Logic:**
+
 ```typescript
 // packages/workers/uptime/src/alerts.ts
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 export async function sendDownAlert(env: Env, site: Site, incident: Incident) {
-  const recipients = site.settings_json.alert_recipients || [{ email: site.agency.admin_email }]
-  
+  const recipients = site.settings_json.alert_recipients || [{ email: site.agency.admin_email }];
+
   const ses = new SESClient({
     region: 'us-east-1',
     credentials: {
       accessKeyId: env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY
-    }
-  })
-  
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+
   for (const recipient of recipients) {
-    if (!recipient.email) continue
-    
+    if (!recipient.email) continue;
+
     // Check quiet hours
     if (isInQuietHours(recipient)) {
-      console.log(`Skipping email to ${recipient.email} (quiet hours)`)
-      continue
+      console.log(`Skipping email to ${recipient.email} (quiet hours)`);
+      continue;
     }
-    
+
     try {
       const html = renderDownEmailTemplate({
         domain: site.domain,
         timestamp: incident.opened_at,
         reason: incident.reason,
-        incident_link: `https://app.websitemage.com/sites/${site.id}/incidents/${incident.id}`
-      })
-      
+        incident_link: `https://app.websitemage.com/sites/${site.id}/incidents/${incident.id}`,
+      });
+
       const command = new SendEmailCommand({
         Source: 'alerts@websitemage.com',
         Destination: { ToAddresses: [recipient.email] },
         Message: {
           Subject: { Data: `🚨 ${site.domain} is DOWN` },
-          Body: { Html: { Data: html } }
-        }
-      })
-      
-      const response = await ses.send(command)
-      
+          Body: { Html: { Data: html } },
+        },
+      });
+
+      const response = await ses.send(command);
+
       // Log successful send
-      await env.SUPABASE
-        .from('alerts_sent')
-        .insert({
-          agency_id: site.agency_id,
-          site_id: site.id,
-          incident_id: incident.id,
-          channel: 'email',
-          recipient: recipient.email,
-          status: 'sent',
-          meta: { ses_message_id: response.MessageId }
-        })
-        
+      await env.SUPABASE.from('alerts_sent').insert({
+        agency_id: site.agency_id,
+        site_id: site.id,
+        incident_id: incident.id,
+        channel: 'email',
+        recipient: recipient.email,
+        status: 'sent',
+        meta: { ses_message_id: response.MessageId },
+      });
+
       // Increment usage counter
-      await incrementUsage(env, site.agency_id, 'email')
+      await incrementUsage(env, site.agency_id, 'email');
     } catch (error) {
-      console.error(`Failed to send email to ${recipient.email}:`, error)
-      
-      await env.SUPABASE
-        .from('alerts_sent')
-        .insert({
-          agency_id: site.agency_id,
-          site_id: site.id,
-          incident_id: incident.id,
-          channel: 'email',
-          recipient: recipient.email,
-          status: 'failed',
-          meta: { error: error.message }
-        })
+      console.error(`Failed to send email to ${recipient.email}:`, error);
+
+      await env.SUPABASE.from('alerts_sent').insert({
+        agency_id: site.agency_id,
+        site_id: site.id,
+        incident_id: incident.id,
+        channel: 'email',
+        recipient: recipient.email,
+        status: 'failed',
+        meta: { error: error.message },
+      });
     }
   }
 }
@@ -206,88 +208,91 @@ export async function sendDownAlert(env: Env, site: Site, incident: Incident) {
 #### Technical Notes
 
 **Twilio Integration:**
+
 ```typescript
 // packages/workers/uptime/src/sms.ts
-import { Twilio } from 'twilio'
+import { Twilio } from 'twilio';
 
-export async function sendSMSAlert(env: Env, site: Site, incident: Incident, type: 'down' | 'recovered') {
-  const recipients = site.settings_json.alert_recipients || []
-  
-  const twilio = new Twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN)
-  
+export async function sendSMSAlert(
+  env: Env,
+  site: Site,
+  incident: Incident,
+  type: 'down' | 'recovered'
+) {
+  const recipients = site.settings_json.alert_recipients || [];
+
+  const twilio = new Twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+
   for (const recipient of recipients) {
-    if (!recipient.phone || !recipient.sms_enabled) continue
-    
+    if (!recipient.phone || !recipient.sms_enabled) continue;
+
     // Validate US/Canada phone number
     if (!recipient.phone.match(/^\+1\d{10}$/)) {
-      console.log(`Invalid phone number: ${recipient.phone}`)
-      continue
+      console.log(`Invalid phone number: ${recipient.phone}`);
+      continue;
     }
-    
+
     // Check quiet hours
     if (type === 'down' && isInQuietHours(recipient)) {
-      console.log(`Skipping SMS to ${recipient.phone} (quiet hours)`)
-      continue
+      console.log(`Skipping SMS to ${recipient.phone} (quiet hours)`);
+      continue;
     }
-    
+
     try {
-      const message = type === 'down'
-        ? `[Website Mage] ALERT: ${site.domain} is down. Check dashboard: https://app.websitemage.com/sites/${site.id}`
-        : `[Website Mage] ${site.domain} recovered after ${formatDuration(incident.closed_at - incident.opened_at)}.`
-      
+      const message =
+        type === 'down'
+          ? `[Website Mage] ALERT: ${site.domain} is down. Check dashboard: https://app.websitemage.com/sites/${site.id}`
+          : `[Website Mage] ${site.domain} recovered after ${formatDuration(incident.closed_at - incident.opened_at)}.`;
+
       const sms = await twilio.messages.create({
         body: message,
         from: env.TWILIO_PHONE_NUMBER,
         to: recipient.phone,
-        statusCallback: `https://api.websitemage.com/webhooks/twilio/status`
-      })
-      
-      await env.SUPABASE
-        .from('alerts_sent')
-        .insert({
-          agency_id: site.agency_id,
-          site_id: site.id,
-          incident_id: incident.id,
-          channel: 'sms',
-          recipient: recipient.phone,
-          status: 'sent',
-          meta: { twilio_sid: sms.sid, status: sms.status }
-        })
-      
+        statusCallback: `https://api.websitemage.com/webhooks/twilio/status`,
+      });
+
+      await env.SUPABASE.from('alerts_sent').insert({
+        agency_id: site.agency_id,
+        site_id: site.id,
+        incident_id: incident.id,
+        channel: 'sms',
+        recipient: recipient.phone,
+        status: 'sent',
+        meta: { twilio_sid: sms.sid, status: sms.status },
+      });
+
       // Increment SMS usage (always metered)
-      await incrementUsage(env, site.agency_id, 'sms')
+      await incrementUsage(env, site.agency_id, 'sms');
     } catch (error) {
-      console.error(`Failed to send SMS to ${recipient.phone}:`, error)
-      
-      await env.SUPABASE
-        .from('alerts_sent')
-        .insert({
-          agency_id: site.agency_id,
-          site_id: site.id,
-          incident_id: incident.id,
-          channel: 'sms',
-          recipient: recipient.phone,
-          status: 'failed',
-          meta: { error: error.message }
-        })
+      console.error(`Failed to send SMS to ${recipient.phone}:`, error);
+
+      await env.SUPABASE.from('alerts_sent').insert({
+        agency_id: site.agency_id,
+        site_id: site.id,
+        incident_id: incident.id,
+        channel: 'sms',
+        recipient: recipient.phone,
+        status: 'failed',
+        meta: { error: error.message },
+      });
     }
   }
 }
 ```
 
 **Twilio Status Callback Webhook:**
+
 ```typescript
 // packages/workers/api/src/routes/webhooks.ts
 app.post('/webhooks/twilio/status', async (c) => {
-  const { MessageSid, MessageStatus } = await c.req.parseBody()
-  
-  await c.env.SUPABASE
-    .from('alerts_sent')
+  const { MessageSid, MessageStatus } = await c.req.parseBody();
+
+  await c.env.SUPABASE.from('alerts_sent')
     .update({ meta: { twilio_sid: MessageSid, status: MessageStatus } })
-    .eq('meta->>twilio_sid', MessageSid)
-  
-  return c.text('OK')
-})
+    .eq('meta->>twilio_sid', MessageSid);
+
+  return c.text('OK');
+});
 ```
 
 ---
@@ -313,6 +318,7 @@ app.post('/webhooks/twilio/status', async (c) => {
 #### Technical Notes
 
 **Recipient Form Component:**
+
 ```vue
 <template>
   <div class="alert-recipients">
@@ -347,20 +353,20 @@ app.post('/webhooks/twilio/status', async (c) => {
         </tbody>
       </table>
     </div>
-    
-    <button 
+
+    <button
       @click="showAddModal = true"
       :disabled="recipients.length >= recipientLimit"
       class="btn-primary"
     >
       Add Recipient
     </button>
-    
+
     <div v-if="recipients.length >= recipientLimit" class="upgrade-prompt">
       <p>Recipient limit reached. Upgrade to add more recipients.</p>
     </div>
-    
-    <RecipientModal 
+
+    <RecipientModal
       v-if="showAddModal"
       :recipient="editingRecipient"
       @save="handleSave"
@@ -370,7 +376,7 @@ app.post('/webhooks/twilio/status', async (c) => {
 </template>
 
 <script setup>
-const props = defineProps<{ 
+const props = defineProps<{
   siteId: string
   tier: string
 }>()
@@ -390,7 +396,7 @@ async function handleSave(recipient) {
     alert('Recipient must have at least email or phone')
     return
   }
-  
+
   // Update settings_json
   await $fetch(`/api/sites/${props.siteId}`, {
     method: 'PATCH',
@@ -400,30 +406,38 @@ async function handleSave(recipient) {
       }
     }
   })
-  
+
   showAddModal.value = false
 }
 </script>
 ```
 
 **Validation Schema:**
-```typescript
-import { z } from 'zod'
 
-export const RecipientSchema = z.object({
-  name: z.string().min(1).max(100),
-  email: z.string().email().optional(),
-  phone: z.string().regex(/^\+1\d{10}$/).optional(),
-  sms_enabled: z.boolean().default(false),
-  quiet_hours: z.object({
-    enabled: z.boolean(),
-    start: z.string().regex(/^\d{2}:\d{2}$/),
-    end: z.string().regex(/^\d{2}:\d{2}$/),
-    timezone: z.string()
-  }).optional()
-}).refine(data => data.email || data.phone, {
-  message: 'At least one contact method (email or phone) is required'
-})
+```typescript
+import { z } from 'zod';
+
+export const RecipientSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    email: z.string().email().optional(),
+    phone: z
+      .string()
+      .regex(/^\+1\d{10}$/)
+      .optional(),
+    sms_enabled: z.boolean().default(false),
+    quiet_hours: z
+      .object({
+        enabled: z.boolean(),
+        start: z.string().regex(/^\d{2}:\d{2}$/),
+        end: z.string().regex(/^\d{2}:\d{2}$/),
+        timezone: z.string(),
+      })
+      .optional(),
+  })
+  .refine((data) => data.email || data.phone, {
+    message: 'At least one contact method (email or phone) is required',
+  });
 ```
 
 ---
@@ -449,33 +463,34 @@ export const RecipientSchema = z.object({
 #### Technical Notes
 
 **Quiet Hours Logic:**
+
 ```typescript
-import { DateTime } from 'luxon'
+import { DateTime } from 'luxon';
 
 export function isInQuietHours(recipient: Recipient): boolean {
-  if (!recipient.quiet_hours?.enabled) return false
-  
-  const now = DateTime.now().setZone(recipient.quiet_hours.timezone)
-  const currentTime = now.toFormat('HH:mm')
-  
-  const start = recipient.quiet_hours.start
-  const end = recipient.quiet_hours.end
-  
+  if (!recipient.quiet_hours?.enabled) return false;
+
+  const now = DateTime.now().setZone(recipient.quiet_hours.timezone);
+  const currentTime = now.toFormat('HH:mm');
+
+  const start = recipient.quiet_hours.start;
+  const end = recipient.quiet_hours.end;
+
   // Handle overnight quiet hours (e.g., 22:00 - 08:00)
   if (start > end) {
-    return currentTime >= start || currentTime < end
+    return currentTime >= start || currentTime < end;
   }
-  
+
   // Normal quiet hours (e.g., 09:00 - 17:00)
-  return currentTime >= start && currentTime < end
+  return currentTime >= start && currentTime < end;
 }
 
 export function shouldSendAlert(recipient: Recipient, alertType: 'down' | 'recovered'): boolean {
   // Always send recovery alerts
-  if (alertType === 'recovered') return true
-  
+  if (alertType === 'recovered') return true;
+
   // Check quiet hours for down alerts
-  return !isInQuietHours(recipient)
+  return !isInQuietHours(recipient);
 }
 ```
 
@@ -502,44 +517,44 @@ export function shouldSendAlert(recipient: Recipient, alertType: 'down' | 'recov
 #### Technical Notes
 
 **Throttling Logic:**
+
 ```typescript
 export async function handleAlertThrottling(env: Env, incident: Incident, site: Site) {
-  const maxAlerts = site.settings_json.max_alerts || 3
-  
+  const maxAlerts = site.settings_json.max_alerts || 3;
+
   // Check current alert count
   if (incident.alert_sent_count >= maxAlerts) {
-    console.log(`Incident ${incident.id} throttled (${incident.alert_sent_count} alerts sent)`)
-    return false // Don't send
+    console.log(`Incident ${incident.id} throttled (${incident.alert_sent_count} alerts sent)`);
+    return false; // Don't send
   }
-  
+
   // Check if it's time for a reminder
-  const now = Date.now()
-  const openedAt = new Date(incident.opened_at).getTime()
-  const hoursSinceOpened = (now - openedAt) / (1000 * 60 * 60)
-  
-  const reminderIntervals = [0, 1, 6] // Initial, 1h, 6h
-  const nextReminderIndex = incident.alert_sent_count
-  
+  const now = Date.now();
+  const openedAt = new Date(incident.opened_at).getTime();
+  const hoursSinceOpened = (now - openedAt) / (1000 * 60 * 60);
+
+  const reminderIntervals = [0, 1, 6]; // Initial, 1h, 6h
+  const nextReminderIndex = incident.alert_sent_count;
+
   if (nextReminderIndex >= reminderIntervals.length) {
-    return false // No more reminders
+    return false; // No more reminders
   }
-  
-  const nextReminderTime = reminderIntervals[nextReminderIndex]
-  
+
+  const nextReminderTime = reminderIntervals[nextReminderIndex];
+
   if (hoursSinceOpened >= nextReminderTime) {
     // Time to send reminder
-    await sendDownAlert(env, site, incident)
-    
+    await sendDownAlert(env, site, incident);
+
     // Increment counter
-    await env.SUPABASE
-      .from('uptime_incidents')
+    await env.SUPABASE.from('uptime_incidents')
       .update({ alert_sent_count: incident.alert_sent_count + 1 })
-      .eq('id', incident.id)
-    
-    return true
+      .eq('id', incident.id);
+
+    return true;
   }
-  
-  return false
+
+  return false;
 }
 ```
 
@@ -567,45 +582,41 @@ export async function handleAlertThrottling(env: Env, incident: Incident, site: 
 #### Technical Notes
 
 **Usage Tracking:**
+
 ```typescript
 export async function incrementUsage(env: Env, agencyId: string, metric: 'email' | 'sms') {
-  const month = new Date().toISOString().substring(0, 7) // YYYY-MM
-  
-  const { data: usage } = await env.SUPABASE
-    .from('usage_counters')
+  const month = new Date().toISOString().substring(0, 7); // YYYY-MM
+
+  const { data: usage } = await env.SUPABASE.from('usage_counters')
     .select('*')
     .eq('agency_id', agencyId)
     .eq('metric', metric)
     .eq('month', month)
-    .single()
-  
+    .single();
+
   if (usage) {
-    await env.SUPABASE
-      .from('usage_counters')
+    await env.SUPABASE.from('usage_counters')
       .update({ used: usage.used + 1 })
-      .eq('id', usage.id)
+      .eq('id', usage.id);
   } else {
     // Get agency tier to determine cap
-    const { data: agency } = await env.SUPABASE
-      .from('agencies')
+    const { data: agency } = await env.SUPABASE.from('agencies')
       .select('tier')
       .eq('id', agencyId)
-      .single()
-    
+      .single();
+
     const caps = {
       email: { base: 100, pro: 500, agency: 5000 },
-      sms: { base: 0, pro: 0, agency: 0 } // SMS always metered
-    }
-    
-    await env.SUPABASE
-      .from('usage_counters')
-      .insert({
-        agency_id: agencyId,
-        metric,
-        month,
-        used: 1,
-        cap: caps[metric][agency.tier]
-      })
+      sms: { base: 0, pro: 0, agency: 0 }, // SMS always metered
+    };
+
+    await env.SUPABASE.from('usage_counters').insert({
+      agency_id: agencyId,
+      metric,
+      month,
+      used: 1,
+      cap: caps[metric][agency.tier],
+    });
   }
 }
 ```
@@ -633,45 +644,46 @@ export async function incrementUsage(env: Env, agencyId: string, metric: 'email'
 #### Technical Notes
 
 **Retry Logic:**
+
 ```typescript
 async function sendWithRetry(sendFn: () => Promise<void>, maxAttempts = 3) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      await sendFn()
-      return { success: true, attempts: attempt }
+      await sendFn();
+      return { success: true, attempts: attempt };
     } catch (error) {
-      const isTransient = error.code === 429 || error.code === 503
-      
+      const isTransient = error.code === 429 || error.code === 503;
+
       if (attempt === maxAttempts || !isTransient) {
-        return { success: false, attempts: attempt, error: error.message }
+        return { success: false, attempts: attempt, error: error.message };
       }
-      
+
       // Exponential backoff
-      const delay = Math.pow(2, attempt) * 1000 // 2s, 4s, 8s
-      await new Promise(resolve => setTimeout(resolve, delay))
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
 
 export async function sendAlertWithRetry(env: Env, site: Site, incident: Incident) {
   const result = await sendWithRetry(async () => {
-    await sendDownAlert(env, site, incident)
-  })
-  
+    await sendDownAlert(env, site, incident);
+  });
+
   if (!result.success) {
-    console.error(`Alert delivery failed after ${result.attempts} attempts:`, result.error)
-    
+    console.error(`Alert delivery failed after ${result.attempts} attempts:`, result.error);
+
     // Log to Sentry
     Sentry.captureException(new Error(`Alert delivery failed: ${result.error}`), {
       extra: {
         incident_id: incident.id,
         site_id: site.id,
-        attempts: result.attempts
-      }
-    })
+        attempts: result.attempts,
+      },
+    });
   }
-  
-  return result
+
+  return result;
 }
 ```
 
@@ -695,17 +707,20 @@ export async function sendAlertWithRetry(env: Env, site: Site, incident: Inciden
 ## Dependencies & Prerequisites
 
 **Requires Epics 1, 2, 3, 4 Completion:**
+
 - Incident tracking system
 - Sites infrastructure
 - Tier management
 
 **New Services Needed:**
+
 - AWS SES account with verified domain
 - Twilio account with phone number
 - SES SMTP credentials
 - Twilio API credentials
 
 **After Epic 5 Completion:**
+
 - Users notified of all incidents
 - Multiple alert channels operational
 - Usage tracking for billing ready

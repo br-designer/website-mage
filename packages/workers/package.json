@@ -1,0 +1,14 @@
+{
+  "name": "@websitemage/workers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Workers dev server to be configured in next story'",
+    "build": "echo 'Workers build to be configured in next story'",
+    "lint": "eslint .",
+    "test": "echo 'Tests to be added in future stories'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

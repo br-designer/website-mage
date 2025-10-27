@@ -52,6 +52,7 @@ This epic delivers real-world user analytics:
 #### Technical Notes
 
 **Snippet Source Structure:**
+
 ```
 packages/rum-js/
 ├── src/
@@ -66,69 +67,70 @@ packages/rum-js/
 ```
 
 **Core Implementation (index.ts):**
+
 ```typescript
-import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals'
+import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
 
 interface RUMConfig {
-  siteId: string
-  sampleRate: number
-  beaconUrl?: string
+  siteId: string;
+  sampleRate: number;
+  beaconUrl?: string;
 }
 
 declare global {
   interface Window {
-    WebsiteMageRUM?: RUMConfig
+    WebsiteMageRUM?: RUMConfig;
   }
 }
 
 class WebsiteMageRUM {
-  private config: RUMConfig
-  private metrics: Record<string, any> = {}
-  private sessionId: string
-  
+  private config: RUMConfig;
+  private metrics: Record<string, any> = {};
+  private sessionId: string;
+
   constructor(config: RUMConfig) {
     this.config = {
       beaconUrl: 'https://beacon.websitemage.com/v1/rum',
-      ...config
-    }
-    this.sessionId = this.generateSessionId()
-    
+      ...config,
+    };
+    this.sessionId = this.generateSessionId();
+
     // Apply sampling
     if (Math.random() > this.config.sampleRate) {
-      return // Don't initialize if not sampled
+      return; // Don't initialize if not sampled
     }
-    
-    this.initCollectors()
-    this.setupBeaconSending()
+
+    this.initCollectors();
+    this.setupBeaconSending();
   }
-  
+
   private initCollectors() {
-    onLCP((metric) => this.metrics.lcp = metric.value)
-    onCLS((metric) => this.metrics.cls = metric.value)
-    onINP((metric) => this.metrics.inp = metric.value)
-    onFCP((metric) => this.metrics.fcp = metric.value)
-    onTTFB((metric) => this.metrics.ttfb = metric.value)
+    onLCP((metric) => (this.metrics.lcp = metric.value));
+    onCLS((metric) => (this.metrics.cls = metric.value));
+    onINP((metric) => (this.metrics.inp = metric.value));
+    onFCP((metric) => (this.metrics.fcp = metric.value));
+    onTTFB((metric) => (this.metrics.ttfb = metric.value));
   }
-  
+
   private setupBeaconSending() {
-    let debounceTimer: number
-    
+    let debounceTimer: number;
+
     const sendBeacon = () => {
-      this.send()
-      clearTimeout(debounceTimer)
-    }
-    
+      this.send();
+      clearTimeout(debounceTimer);
+    };
+
     // Send on visibility change
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        sendBeacon()
+        sendBeacon();
       }
-    })
-    
+    });
+
     // Debounced send after 5 seconds
-    debounceTimer = window.setTimeout(sendBeacon, 5000)
+    debounceTimer = window.setTimeout(sendBeacon, 5000);
   }
-  
+
   private send() {
     const payload = {
       site_id: this.config.siteId,
@@ -139,70 +141,72 @@ class WebsiteMageRUM {
         user_agent: navigator.userAgent,
         screen: `${screen.width}x${screen.height}`,
         connection: (navigator as any).connection?.effectiveType,
-        device_memory: (navigator as any).deviceMemory
+        device_memory: (navigator as any).deviceMemory,
       },
-      timestamp: Date.now()
-    }
-    
+      timestamp: Date.now(),
+    };
+
     // Use sendBeacon for reliability
     if (navigator.sendBeacon) {
-      navigator.sendBeacon(this.config.beaconUrl, JSON.stringify(payload))
+      navigator.sendBeacon(this.config.beaconUrl, JSON.stringify(payload));
     } else {
       // Fallback to fetch with keepalive
       fetch(this.config.beaconUrl, {
         method: 'POST',
         body: JSON.stringify(payload),
         keepalive: true,
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => {}) // Silent fail
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {}); // Silent fail
     }
   }
-  
+
   private generateSessionId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 }
 
 // Auto-initialize
 if (window.WebsiteMageRUM) {
-  new WebsiteMageRUM(window.WebsiteMageRUM)
+  new WebsiteMageRUM(window.WebsiteMageRUM);
 }
 ```
 
 **Installation Example:**
+
 ```html
 <!-- Add before closing </head> tag -->
 <script>
   window.WebsiteMageRUM = {
     siteId: 'your-site-id-here',
-    sampleRate: 0.05  // 5% sampling (Pro tier)
-  }
+    sampleRate: 0.05, // 5% sampling (Pro tier)
+  };
 </script>
 <script src="https://cdn.websitemage.com/rum/v1/rum.min.js" async></script>
 ```
 
 **Build Config (rollup.config.js):**
+
 ```javascript
-import typescript from '@rollup/plugin-typescript'
-import { terser } from 'rollup-plugin-terser'
+import typescript from '@rollup/plugin-typescript';
+import { terser } from 'rollup-plugin-terser';
 
 export default {
   input: 'src/index.ts',
   output: {
     file: 'dist/rum.min.js',
     format: 'iife',
-    name: 'WebsiteMageRUM'
+    name: 'WebsiteMageRUM',
   },
   plugins: [
     typescript(),
     terser({
       compress: {
         drop_console: true,
-        passes: 2
-      }
-    })
-  ]
-}
+        passes: 2,
+      },
+    }),
+  ],
+};
 ```
 
 ---
@@ -230,6 +234,7 @@ export default {
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.rum_events (
   id BIGSERIAL PRIMARY KEY,
@@ -262,10 +267,11 @@ CREATE INDEX idx_rum_bot ON rum_events(is_bot) WHERE is_bot = false;
 ```
 
 **Worker Implementation:**
+
 ```typescript
 // packages/workers/rum/src/index.ts
-import { Hono } from 'hono'
-import { z } from 'zod'
+import { Hono } from 'hono';
+import { z } from 'zod';
 
 const BeaconSchema = z.object({
   site_id: z.string().uuid(),
@@ -277,100 +283,95 @@ const BeaconSchema = z.object({
     inp: z.number().optional(),
     fid: z.number().optional(),
     fcp: z.number().optional(),
-    ttfb: z.number().optional()
+    ttfb: z.number().optional(),
   }),
   context: z.object({
     user_agent: z.string().max(500),
     screen: z.string().optional(),
     connection: z.string().optional(),
-    device_memory: z.number().optional()
+    device_memory: z.number().optional(),
   }),
-  timestamp: z.number()
-})
+  timestamp: z.number(),
+});
 
-const app = new Hono()
+const app = new Hono();
 
 app.post('/v1/rum', async (c) => {
-  const startTime = Date.now()
-  
+  const startTime = Date.now();
+
   try {
     // Parse and validate
-    const body = await c.req.json()
-    const beacon = BeaconSchema.parse(body)
-    
+    const body = await c.req.json();
+    const beacon = BeaconSchema.parse(body);
+
     // Validate timestamp (not older than 5 minutes)
-    const age = Date.now() - beacon.timestamp
+    const age = Date.now() - beacon.timestamp;
     if (age > 5 * 60 * 1000) {
-      return c.json({ error: 'Beacon too old' }, 400)
+      return c.json({ error: 'Beacon too old' }, 400);
     }
-    
+
     // Check rate limit
-    const rateLimitKey = `rum:ratelimit:${beacon.site_id}:${Math.floor(Date.now() / 3600000)}` // hourly
-    const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey)
-    
+    const rateLimitKey = `rum:ratelimit:${beacon.site_id}:${Math.floor(Date.now() / 3600000)}`; // hourly
+    const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey);
+
     if (count && parseInt(count) >= 10000) {
-      return c.json({ error: 'Rate limit exceeded' }, 429)
+      return c.json({ error: 'Rate limit exceeded' }, 429);
     }
-    
+
     // Validate site exists
-    const { data: site } = await c.env.SUPABASE
-      .from('sites')
+    const { data: site } = await c.env.SUPABASE.from('sites')
       .select('id, agency_id')
       .eq('id', beacon.site_id)
       .is('deleted_at', null)
-      .single()
-    
+      .single();
+
     if (!site) {
-      return c.json({ error: 'Invalid site_id' }, 400)
+      return c.json({ error: 'Invalid site_id' }, 400);
     }
-    
+
     // Enrich with server data
-    const country = c.req.header('CF-IPCountry') || 'Unknown'
-    
+    const country = c.req.header('CF-IPCountry') || 'Unknown';
+
     // Insert event
-    await c.env.SUPABASE
-      .from('rum_events')
-      .insert({
-        agency_id: site.agency_id,
-        site_id: beacon.site_id,
-        session_id: beacon.session_id,
-        page_url: beacon.page_url,
-        lcp_ms: beacon.metrics.lcp,
-        cls: beacon.metrics.cls,
-        inp_ms: beacon.metrics.inp,
-        fid_ms: beacon.metrics.fid,
-        fcp_ms: beacon.metrics.fcp,
-        ttfb_ms: beacon.metrics.ttfb,
-        user_agent: beacon.context.user_agent,
-        screen: beacon.context.screen,
-        connection: beacon.context.connection,
-        device_memory: beacon.context.device_memory,
-        country,
-        is_bot: false // Will be updated by bot detection (Story 4.3)
-      })
-    
+    await c.env.SUPABASE.from('rum_events').insert({
+      agency_id: site.agency_id,
+      site_id: beacon.site_id,
+      session_id: beacon.session_id,
+      page_url: beacon.page_url,
+      lcp_ms: beacon.metrics.lcp,
+      cls: beacon.metrics.cls,
+      inp_ms: beacon.metrics.inp,
+      fid_ms: beacon.metrics.fid,
+      fcp_ms: beacon.metrics.fcp,
+      ttfb_ms: beacon.metrics.ttfb,
+      user_agent: beacon.context.user_agent,
+      screen: beacon.context.screen,
+      connection: beacon.context.connection,
+      device_memory: beacon.context.device_memory,
+      country,
+      is_bot: false, // Will be updated by bot detection (Story 4.3)
+    });
+
     // Increment rate limit counter
-    await c.env.RATE_LIMIT_KV.put(
-      rateLimitKey, 
-      String((parseInt(count || '0') + 1)),
-      { expirationTtl: 3600 }
-    )
-    
-    const duration = Date.now() - startTime
-    console.log(`Beacon ingested in ${duration}ms`)
-    
-    return c.body(null, 204)
+    await c.env.RATE_LIMIT_KV.put(rateLimitKey, String(parseInt(count || '0') + 1), {
+      expirationTtl: 3600,
+    });
+
+    const duration = Date.now() - startTime;
+    console.log(`Beacon ingested in ${duration}ms`);
+
+    return c.body(null, 204);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({ error: 'Invalid payload', details: error.errors }, 400)
+      return c.json({ error: 'Invalid payload', details: error.errors }, 400);
     }
-    
-    console.error('Beacon ingestion error:', error)
-    return c.json({ error: 'Internal error' }, 500)
-  }
-})
 
-export default app
+    console.error('Beacon ingestion error:', error);
+    return c.json({ error: 'Internal error' }, 500);
+  }
+});
+
+export default app;
 ```
 
 ---
@@ -396,6 +397,7 @@ export default app
 #### Technical Notes
 
 **Bot Detection Patterns:**
+
 ```typescript
 const BOT_PATTERNS = [
   /bot/i,
@@ -411,49 +413,50 @@ const BOT_PATTERNS = [
   /pingdom/i,
   /headless/i,
   /phantom/i,
-  /selenium/i
-]
+  /selenium/i,
+];
 
 export function isBotUserAgent(userAgent: string): boolean {
-  return BOT_PATTERNS.some(pattern => pattern.test(userAgent))
+  return BOT_PATTERNS.some((pattern) => pattern.test(userAgent));
 }
 
 export function isSuspiciousMetrics(metrics: any): boolean {
   // All metrics zero or near-zero
   if (metrics.lcp === 0 && metrics.cls === 0 && metrics.ttfb < 10) {
-    return true
+    return true;
   }
-  
+
   // Unrealistic perfect metrics
   if (metrics.lcp < 100 && metrics.cls < 0.001 && metrics.inp < 10) {
-    return true
+    return true;
   }
-  
-  return false
+
+  return false;
 }
 
 export function isSuspiciousScreen(screen: string): boolean {
-  const commonBotResolutions = ['800x600', '1024x768', '1920x1080']
-  return commonBotResolutions.includes(screen)
+  const commonBotResolutions = ['800x600', '1024x768', '1920x1080'];
+  return commonBotResolutions.includes(screen);
 }
 ```
 
 **Inline Detection (add to ingestion worker):**
+
 ```typescript
 // In beacon ingestion
-const isBot = isBotUserAgent(beacon.context.user_agent) || 
-              isSuspiciousMetrics(beacon.metrics) ||
-              isSuspiciousScreen(beacon.context.screen)
+const isBot =
+  isBotUserAgent(beacon.context.user_agent) ||
+  isSuspiciousMetrics(beacon.metrics) ||
+  isSuspiciousScreen(beacon.context.screen);
 
-await c.env.SUPABASE
-  .from('rum_events')
-  .insert({
-    // ... other fields
-    is_bot: isBot
-  })
+await c.env.SUPABASE.from('rum_events').insert({
+  // ... other fields
+  is_bot: isBot,
+});
 ```
 
 **Bot Events Table (optional):**
+
 ```sql
 CREATE TABLE public.rum_bot_events (
   id BIGSERIAL PRIMARY KEY,
@@ -487,79 +490,81 @@ CREATE TABLE public.rum_bot_events (
 #### Technical Notes
 
 **Sampling Constants:**
+
 ```typescript
 export const RUM_SAMPLING = {
   base: { rate: 0.01, dailyCap: 10000 },
   pro: { rate: 0.05, dailyCap: 50000 },
-  agency: { rate: 0.10, dailyCap: 100000 }
-}
+  agency: { rate: 0.1, dailyCap: 100000 },
+};
 
 export function getGraceCap(tier: string): number {
-  return Math.floor(RUM_SAMPLING[tier].dailyCap * 1.1)
+  return Math.floor(RUM_SAMPLING[tier].dailyCap * 1.1);
 }
 ```
 
 **Server-Side Cap Enforcement:**
+
 ```typescript
 // In beacon ingestion worker
-const agency = await getAgency(c.env, site.agency_id)
-const config = RUM_SAMPLING[agency.tier]
+const agency = await getAgency(c.env, site.agency_id);
+const config = RUM_SAMPLING[agency.tier];
 
-const today = new Date().toISOString().split('T')[0]
-const { data: usage } = await c.env.SUPABASE
-  .from('usage_counters')
+const today = new Date().toISOString().split('T')[0];
+const { data: usage } = await c.env.SUPABASE.from('usage_counters')
   .select('used')
   .eq('agency_id', agency.id)
   .eq('metric', 'rum_events')
   .eq('month', today)
-  .single()
+  .single();
 
-const graceCap = getGraceCap(agency.tier)
+const graceCap = getGraceCap(agency.tier);
 
 if (usage && usage.used >= graceCap) {
-  return c.json({ 
-    error: 'Daily RUM cap exceeded',
-    cap: config.dailyCap,
-    used: usage.used
-  }, 429)
+  return c.json(
+    {
+      error: 'Daily RUM cap exceeded',
+      cap: config.dailyCap,
+      used: usage.used,
+    },
+    429
+  );
 }
 
 // ... insert beacon ...
 
 // Increment usage
-await c.env.SUPABASE
-  .from('usage_counters')
-  .upsert({
-    agency_id: agency.id,
-    metric: 'rum_events',
-    month: today,
-    used: (usage?.used || 0) + 1,
-    cap: config.dailyCap
-  })
+await c.env.SUPABASE.from('usage_counters').upsert({
+  agency_id: agency.id,
+  metric: 'rum_events',
+  month: today,
+  used: (usage?.used || 0) + 1,
+  cap: config.dailyCap,
+});
 ```
 
 **Dashboard Component:**
+
 ```vue
 <template>
   <div class="rum-usage">
     <div class="usage-stats">
       <h4>RUM Usage Today</h4>
       <div class="progress-bar">
-        <div 
+        <div
           class="progress-fill"
           :style="{ width: `${usagePercent}%` }"
           :class="{ warning: usagePercent > 80 }"
         ></div>
       </div>
       <p>
-        {{ usage.used.toLocaleString() }} / {{ usage.cap.toLocaleString() }} events
-        ({{ usagePercent }}%)
+        {{ usage.used.toLocaleString() }} / {{ usage.cap.toLocaleString() }} events ({{
+          usagePercent
+        }}%)
       </p>
-      <p class="sampling-note">
-        Sampling at {{ samplingRate * 100 }}% ({{ tier }} tier)
-      </p>
+      <p class="sampling-note">Sampling at {{ samplingRate * 100 }}% ({{ tier }} tier)</p>
     </div>
-    
+
     <div v-if="usagePercent > 80" class="upgrade-prompt">
       <p>⚠️ You're approaching your daily RUM limit</p>
       <button @click="showUpgrade">Upgrade Plan</button>
@@ -592,6 +597,7 @@ await c.env.SUPABASE
 #### Technical Notes
 
 **Aggregation Table Schema:**
+
 ```sql
 CREATE TABLE public.rum_daily_agg (
   id BIGSERIAL PRIMARY KEY,
@@ -621,47 +627,47 @@ CREATE INDEX idx_rum_agg_site_date ON rum_daily_agg(site_id, date DESC);
 ```
 
 **Aggregation Worker:**
+
 ```typescript
 // packages/workers/aggregation/src/rum-aggregation.ts
 export async function aggregateRUMData(env: Env) {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const dateStr = yesterday.toISOString().split('T')[0]
-  
-  console.log(`Aggregating RUM data for ${dateStr}`)
-  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dateStr = yesterday.toISOString().split('T')[0];
+
+  console.log(`Aggregating RUM data for ${dateStr}`);
+
   // Query raw events
-  const { data: events } = await env.SUPABASE
-    .from('rum_events')
+  const { data: events } = await env.SUPABASE.from('rum_events')
     .select('*')
     .gte('ingested_at', `${dateStr}T00:00:00Z`)
     .lt('ingested_at', `${dateStr}T23:59:59Z`)
-    .eq('is_bot', false)
-  
+    .eq('is_bot', false);
+
   if (!events || events.length === 0) {
-    console.log('No events to aggregate')
-    return
+    console.log('No events to aggregate');
+    return;
   }
-  
+
   // Group by dimensions
-  const groups = new Map<string, any[]>()
-  
+  const groups = new Map<string, any[]>();
+
   for (const event of events) {
-    const deviceType = detectDeviceType(event.user_agent)
-    const key = `${event.site_id}|${event.page_url}|${deviceType}|${event.country}`
-    
+    const deviceType = detectDeviceType(event.user_agent);
+    const key = `${event.site_id}|${event.page_url}|${deviceType}|${event.country}`;
+
     if (!groups.has(key)) {
-      groups.set(key, [])
+      groups.set(key, []);
     }
-    groups.get(key)!.push(event)
+    groups.get(key)!.push(event);
   }
-  
+
   // Calculate aggregates for each group
-  const aggregates = []
-  
+  const aggregates = [];
+
   for (const [key, groupEvents] of groups) {
-    const [site_id, page_url, device_type, country] = key.split('|')
-    
+    const [site_id, page_url, device_type, country] = key.split('|');
+
     aggregates.push({
       agency_id: groupEvents[0].agency_id,
       site_id,
@@ -670,49 +676,49 @@ export async function aggregateRUMData(env: Env) {
       device_type,
       country,
       event_count: groupEvents.length,
-      lcp_p50: percentile(groupEvents.map(e => e.lcp_ms).filter(Boolean), 0.5),
-      lcp_p75: percentile(groupEvents.map(e => e.lcp_ms).filter(Boolean), 0.75),
-      lcp_p95: percentile(groupEvents.map(e => e.lcp_ms).filter(Boolean), 0.95),
-      cls_p50: percentile(groupEvents.map(e => e.cls).filter(Boolean), 0.5),
-      cls_p75: percentile(groupEvents.map(e => e.cls).filter(Boolean), 0.75),
-      cls_p95: percentile(groupEvents.map(e => e.cls).filter(Boolean), 0.95),
-      inp_p50: percentile(groupEvents.map(e => e.inp_ms).filter(Boolean), 0.5),
-      inp_p75: percentile(groupEvents.map(e => e.inp_ms).filter(Boolean), 0.75),
-      inp_p95: percentile(groupEvents.map(e => e.inp_ms).filter(Boolean), 0.95),
-      fcp_avg: avg(groupEvents.map(e => e.fcp_ms).filter(Boolean)),
-      ttfb_avg: avg(groupEvents.map(e => e.ttfb_ms).filter(Boolean))
-    })
+      lcp_p50: percentile(groupEvents.map((e) => e.lcp_ms).filter(Boolean), 0.5),
+      lcp_p75: percentile(groupEvents.map((e) => e.lcp_ms).filter(Boolean), 0.75),
+      lcp_p95: percentile(groupEvents.map((e) => e.lcp_ms).filter(Boolean), 0.95),
+      cls_p50: percentile(groupEvents.map((e) => e.cls).filter(Boolean), 0.5),
+      cls_p75: percentile(groupEvents.map((e) => e.cls).filter(Boolean), 0.75),
+      cls_p95: percentile(groupEvents.map((e) => e.cls).filter(Boolean), 0.95),
+      inp_p50: percentile(groupEvents.map((e) => e.inp_ms).filter(Boolean), 0.5),
+      inp_p75: percentile(groupEvents.map((e) => e.inp_ms).filter(Boolean), 0.75),
+      inp_p95: percentile(groupEvents.map((e) => e.inp_ms).filter(Boolean), 0.95),
+      fcp_avg: avg(groupEvents.map((e) => e.fcp_ms).filter(Boolean)),
+      ttfb_avg: avg(groupEvents.map((e) => e.ttfb_ms).filter(Boolean)),
+    });
   }
-  
+
   // Bulk insert
-  const { error } = await env.SUPABASE
-    .from('rum_daily_agg')
-    .upsert(aggregates, { onConflict: 'site_id,date,page_url,device_type,country' })
-  
+  const { error } = await env.SUPABASE.from('rum_daily_agg').upsert(aggregates, {
+    onConflict: 'site_id,date,page_url,device_type,country',
+  });
+
   if (error) {
-    console.error('Aggregation insert error:', error)
+    console.error('Aggregation insert error:', error);
   } else {
-    console.log(`Aggregated ${events.length} events into ${aggregates.length} groups`)
+    console.log(`Aggregated ${events.length} events into ${aggregates.length} groups`);
   }
 }
 
 function percentile(values: number[], p: number): number {
-  if (values.length === 0) return 0
-  const sorted = values.sort((a, b) => a - b)
-  const index = Math.ceil(sorted.length * p) - 1
-  return sorted[index]
+  if (values.length === 0) return 0;
+  const sorted = values.sort((a, b) => a - b);
+  const index = Math.ceil(sorted.length * p) - 1;
+  return sorted[index];
 }
 
 function avg(values: number[]): number {
-  if (values.length === 0) return 0
-  return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+  if (values.length === 0) return 0;
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
 function detectDeviceType(userAgent: string): string {
-  const ua = userAgent.toLowerCase()
-  if (/mobile|android|iphone|ipod/.test(ua)) return 'mobile'
-  if (/tablet|ipad/.test(ua)) return 'tablet'
-  return 'desktop'
+  const ua = userAgent.toLowerCase();
+  if (/mobile|android|iphone|ipod/.test(ua)) return 'mobile';
+  if (/tablet|ipad/.test(ua)) return 'tablet';
+  return 'desktop';
 }
 ```
 
@@ -740,6 +746,7 @@ function detectDeviceType(userAgent: string): string {
 #### Technical Notes
 
 **Dashboard Layout:**
+
 ```vue
 <template>
   <div class="rum-dashboard">
@@ -749,46 +756,46 @@ function detectDeviceType(userAgent: string): string {
       <CountryFilter v-model="country" />
       <PageUrlFilter v-model="pageUrl" :siteId="siteId" />
     </div>
-    
+
     <div class="cwv-summary">
-      <CWVCard 
-        metric="LCP" 
-        :value="cwvData.lcp_p75" 
+      <CWVCard
+        metric="LCP"
+        :value="cwvData.lcp_p75"
         :threshold="{ good: 2500, poor: 4000 }"
         unit="ms"
       />
-      <CWVCard 
-        metric="CLS" 
-        :value="cwvData.cls_p75" 
+      <CWVCard
+        metric="CLS"
+        :value="cwvData.cls_p75"
         :threshold="{ good: 0.1, poor: 0.25 }"
         unit=""
       />
-      <CWVCard 
-        metric="INP" 
-        :value="cwvData.inp_p75" 
+      <CWVCard
+        metric="INP"
+        :value="cwvData.inp_p75"
         :threshold="{ good: 200, poor: 500 }"
         unit="ms"
       />
     </div>
-    
+
     <div class="charts">
-      <CWVHistogram 
-        metric="LCP" 
+      <CWVHistogram
+        metric="LCP"
         :data="cwvDistributions.lcp"
         :threshold="{ good: 2500, poor: 4000 }"
       />
-      <CWVHistogram 
-        metric="CLS" 
+      <CWVHistogram
+        metric="CLS"
         :data="cwvDistributions.cls"
         :threshold="{ good: 0.1, poor: 0.25 }"
       />
-      <CWVHistogram 
-        metric="INP" 
+      <CWVHistogram
+        metric="INP"
         :data="cwvDistributions.inp"
         :threshold="{ good: 200, poor: 500 }"
       />
     </div>
-    
+
     <div class="page-views">
       <h3>Top Pages</h3>
       <table>
@@ -812,7 +819,7 @@ function detectDeviceType(userAgent: string): string {
         </tbody>
       </table>
     </div>
-    
+
     <div class="geo-map">
       <h3>Performance by Country</h3>
       <ChoroplethMap :data="geoData" metric="lcp_p75" />
@@ -848,52 +855,49 @@ const { data: geoData } = await useFetch(`/api/rum/${props.siteId}/geo`, {
 ```
 
 **API Endpoint for CWV Data:**
+
 ```typescript
 // packages/workers/api/src/routes/rum.ts
 app.get('/:siteId/cwv', async (c) => {
-  const { siteId } = c.req.param()
-  const { range, device, country, page } = c.req.query()
-  
-  const useAggregated = ['7d', '30d'].includes(range)
-  
-  let query
+  const { siteId } = c.req.param();
+  const { range, device, country, page } = c.req.query();
+
+  const useAggregated = ['7d', '30d'].includes(range);
+
+  let query;
   if (useAggregated) {
-    query = c.env.SUPABASE
-      .from('rum_daily_agg')
+    query = c.env.SUPABASE.from('rum_daily_agg')
       .select('lcp_p75, cls_p75, inp_p75')
-      .eq('site_id', siteId)
+      .eq('site_id', siteId);
   } else {
-    query = c.env.SUPABASE
-      .from('rum_events')
+    query = c.env.SUPABASE.from('rum_events')
       .select('lcp_ms, cls, inp_ms')
       .eq('site_id', siteId)
-      .eq('is_bot', false)
+      .eq('is_bot', false);
   }
-  
+
   // Apply filters
   if (device !== 'all') {
-    query = query.eq('device_type', device)
+    query = query.eq('device_type', device);
   }
   if (country !== 'all') {
-    query = query.eq('country', country)
+    query = query.eq('country', country);
   }
   if (page !== 'all') {
-    query = query.eq('page_url', page)
+    query = query.eq('page_url', page);
   }
-  
+
   // Apply time range
-  const rangeStart = getRangeStart(range)
-  query = query.gte(useAggregated ? 'date' : 'ingested_at', rangeStart)
-  
-  const { data } = await query
-  
+  const rangeStart = getRangeStart(range);
+  query = query.gte(useAggregated ? 'date' : 'ingested_at', rangeStart);
+
+  const { data } = await query;
+
   // Calculate p75 (if using raw events)
-  const result = useAggregated 
-    ? calculateAggregateP75(data)
-    : calculateRawP75(data)
-  
-  return c.json(result)
-})
+  const result = useAggregated ? calculateAggregateP75(data) : calculateRawP75(data);
+
+  return c.json(result);
+});
 ```
 
 ---
@@ -916,15 +920,18 @@ app.get('/:siteId/cwv', async (c) => {
 ## Dependencies & Prerequisites
 
 **Requires Epics 1, 2, 3 Completion:**
+
 - Sites infrastructure
 - Tier management
 - Dashboard framework
 
 **New Services Needed:**
+
 - CDN for hosting RUM snippet (Cloudflare R2 + Workers)
 - Subdomain: `beacon.websitemage.com`
 
 **After Epic 4 Completion:**
+
 - Real user monitoring operational
 - Complete picture of site health (synthetic + real user data)
 - Foundation for proactive performance insights

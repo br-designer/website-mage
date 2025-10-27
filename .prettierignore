@@ -1,0 +1,9 @@
+node_modules
+dist
+.nuxt
+.output
+.wrangler
+*.log
+pnpm-lock.yaml
+package-lock.json
+BMAD-METHOD

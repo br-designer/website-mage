@@ -27,9 +27,9 @@ This document covers the complete full-stack architecture including the Nuxt 4 f
 
 ### Change Log
 
-| Date | Version | Description | Author |
-|------|---------|-------------|--------|
-| 2025-10-26 | 1.0 | Initial Architecture document creation from comprehensive planning | Kyle Baker |
+| Date       | Version | Description                                                        | Author     |
+| ---------- | ------- | ------------------------------------------------------------------ | ---------- |
+| 2025-10-26 | 1.0     | Initial Architecture document creation from comprehensive planning | Kyle Baker |
 
 ---
 
@@ -46,6 +46,7 @@ Website Mage employs a **serverless-first, edge-optimized architecture** built o
 **Service Architecture:** Distributed serverless functions + SSR frontend + managed Postgres backend
 
 **Primary Flow:**
+
 1. **User → Nuxt SSR Dashboard** (app.websitemage.com)
 2. **Dashboard → Cloudflare Workers API** (api.websitemage.com) for data operations
 3. **Workers → Supabase Postgres** with RLS enforcement
@@ -53,6 +54,7 @@ Website Mage employs a **serverless-first, edge-optimized architecture** built o
 5. **Browser → RUM CDN** (cdn.websitemage.com) → Worker ingestion → Supabase
 
 **Key Architectural Decisions:**
+
 - **Serverless:** Eliminates server management, scales automatically, cost-efficient at <500 customers
 - **Edge-first:** Cloudflare global network reduces latency for uptime checks and RUM ingestion
 - **Managed Postgres:** Supabase provides RLS, Auth, Storage without custom implementation
@@ -64,24 +66,24 @@ Website Mage employs a **serverless-first, edge-optimized architecture** built o
 graph TB
     Users[Users/Browsers] -->|HTTPS| Marketing[Marketing Site<br/>websitemage.com]
     Users -->|OAuth Login| Dashboard[Dashboard App<br/>app.websitemage.com<br/>Nuxt 4 SSR]
-    
+
     Dashboard -->|REST/GraphQL| API[API Gateway<br/>api.websitemage.com<br/>Cloudflare Workers]
-    
+
     API -->|SQL + Auth| Supabase[Supabase Backend<br/>Postgres + Auth + Storage<br/>RLS Multi-tenant]
-    
+
     CronWorkers[Cloudflare Workers<br/>Cron Jobs] -->|HTTP Checks| MonitoredSites[Monitored Sites]
     CronWorkers -->|PSI API| GooglePSI[Google PageSpeed API]
     CronWorkers -->|Alerts| SES[AWS SES Email]
     CronWorkers -->|SMS| Twilio[Twilio SMS]
     CronWorkers -->|DB Write| Supabase
-    
+
     Browsers[User Site Visitors] -->|RUM Beacons| RUMCDN[cdn.websitemage.com<br/>Cloudflare R2 + Workers]
     RUMCDN -->|Ingest| Supabase
-    
+
     Dashboard -->|Billing| Stripe[Stripe Payments]
     Stripe -->|Webhooks| WebhookWorker[Webhook Worker]
     WebhookWorker -->|Sync| Supabase
-    
+
     Dashboard -->|Errors| Sentry[Sentry Monitoring]
     CronWorkers -->|Errors| Sentry
 ```
@@ -123,34 +125,34 @@ Website Mage uses modern, serverless-first technologies optimized for low operat
 
 ### Technology Stack Table
 
-| Category | Technology | Version | Purpose | Rationale |
-|----------|------------|---------|---------|-----------|
-| **Language** | TypeScript | 5.3.3 | Primary development language | Strong typing, excellent tooling, team expertise |
-| **Runtime** | Node.js | 20.11.0 (LTS) | JavaScript runtime | LTS version, stable performance, wide ecosystem |
-| **Package Manager** | PNPM | 8.15.0 | Dependency management | Disk efficiency, strict resolution, monorepo support |
-| **Monorepo** | Turborepo | 1.12.0 | Build orchestration | Intelligent caching, parallel execution |
-| **Frontend Framework** | Nuxt | 4.0.0 | SSR dashboard application | Vue 3 SSR, excellent DX, hybrid rendering |
-| **UI Framework** | TailwindCSS | 3.4.1 | Utility-first styling | Rapid development, small bundle, design system |
-| **State Management** | Pinia | 2.1.7 | Nuxt store | Official Vue state management, TypeScript native |
-| **Charts** | Chart.js | 4.4.1 | Dashboard visualizations | Lightweight, responsive, canvas-based |
-| **Backend Platform** | Supabase | Latest | Postgres + Auth + Storage | Managed RLS, auto APIs, excellent DX |
-| **Database** | PostgreSQL | 15 | Relational database | Supabase managed, JSON support, mature |
-| **Auth** | Supabase Auth | Latest | OAuth + JWT | Google/MS/GitHub OAuth, secure sessions |
-| **Edge Compute** | Cloudflare Workers | Latest | API gateway + cron | Global edge, sub-50ms startup, KV storage |
-| **CDN/Storage** | Cloudflare R2 | Latest | RUM JS + assets | S3-compatible, free egress, edge caching |
-| **Payments** | Stripe | API 2023-10-16 | Subscription billing | Industry standard, metered usage support |
-| **Email** | AWS SES | Latest | Transactional email | Cost-effective, reliable, SES SMTP |
-| **SMS** | Twilio | Latest | SMS alerts | US/Canada support, delivery tracking |
-| **Error Tracking** | Sentry | ^7.100.0 | Frontend + Worker errors | Real-time alerts, source maps, PII scrubbing |
-| **Testing (Unit)** | Vitest | ^1.2.0 | Unit + integration tests | Fast, Vite-powered, Jest-compatible |
-| **Testing (E2E)** | Playwright | ^1.41.0 | End-to-end testing | Cross-browser, reliable, parallel execution |
-| **Testing (Load)** | k6 | ^0.49.0 | Load testing | Scriptable, RUM ingest + Worker stress tests |
-| **Linting** | ESLint | ^8.56.0 | Code quality | TypeScript support, Vue plugin |
-| **Formatting** | Prettier | ^3.2.0 | Code formatting | Consistent style, auto-fix |
-| **Git Hooks** | Husky | ^9.0.0 | Pre-commit hooks | Lint + format enforcement |
-| **Commit Convention** | commitlint | ^18.6.0 | Conventional commits | Standardized commit messages, changelog generation |
-| **IaC** | Wrangler CLI | ^3.23.0 | Cloudflare Workers deploy | Infrastructure as code for Workers |
-| **CI/CD** | GitHub Actions | N/A | Automation pipeline | Native GitHub integration, matrix builds |
+| Category               | Technology         | Version        | Purpose                      | Rationale                                            |
+| ---------------------- | ------------------ | -------------- | ---------------------------- | ---------------------------------------------------- |
+| **Language**           | TypeScript         | 5.3.3          | Primary development language | Strong typing, excellent tooling, team expertise     |
+| **Runtime**            | Node.js            | 20.11.0 (LTS)  | JavaScript runtime           | LTS version, stable performance, wide ecosystem      |
+| **Package Manager**    | PNPM               | 8.15.0         | Dependency management        | Disk efficiency, strict resolution, monorepo support |
+| **Monorepo**           | Turborepo          | 1.12.0         | Build orchestration          | Intelligent caching, parallel execution              |
+| **Frontend Framework** | Nuxt               | 4.0.0          | SSR dashboard application    | Vue 3 SSR, excellent DX, hybrid rendering            |
+| **UI Framework**       | TailwindCSS        | 3.4.1          | Utility-first styling        | Rapid development, small bundle, design system       |
+| **State Management**   | Pinia              | 2.1.7          | Nuxt store                   | Official Vue state management, TypeScript native     |
+| **Charts**             | Chart.js           | 4.4.1          | Dashboard visualizations     | Lightweight, responsive, canvas-based                |
+| **Backend Platform**   | Supabase           | Latest         | Postgres + Auth + Storage    | Managed RLS, auto APIs, excellent DX                 |
+| **Database**           | PostgreSQL         | 15             | Relational database          | Supabase managed, JSON support, mature               |
+| **Auth**               | Supabase Auth      | Latest         | OAuth + JWT                  | Google/MS/GitHub OAuth, secure sessions              |
+| **Edge Compute**       | Cloudflare Workers | Latest         | API gateway + cron           | Global edge, sub-50ms startup, KV storage            |
+| **CDN/Storage**        | Cloudflare R2      | Latest         | RUM JS + assets              | S3-compatible, free egress, edge caching             |
+| **Payments**           | Stripe             | API 2023-10-16 | Subscription billing         | Industry standard, metered usage support             |
+| **Email**              | AWS SES            | Latest         | Transactional email          | Cost-effective, reliable, SES SMTP                   |
+| **SMS**                | Twilio             | Latest         | SMS alerts                   | US/Canada support, delivery tracking                 |
+| **Error Tracking**     | Sentry             | ^7.100.0       | Frontend + Worker errors     | Real-time alerts, source maps, PII scrubbing         |
+| **Testing (Unit)**     | Vitest             | ^1.2.0         | Unit + integration tests     | Fast, Vite-powered, Jest-compatible                  |
+| **Testing (E2E)**      | Playwright         | ^1.41.0        | End-to-end testing           | Cross-browser, reliable, parallel execution          |
+| **Testing (Load)**     | k6                 | ^0.49.0        | Load testing                 | Scriptable, RUM ingest + Worker stress tests         |
+| **Linting**            | ESLint             | ^8.56.0        | Code quality                 | TypeScript support, Vue plugin                       |
+| **Formatting**         | Prettier           | ^3.2.0         | Code formatting              | Consistent style, auto-fix                           |
+| **Git Hooks**          | Husky              | ^9.0.0         | Pre-commit hooks             | Lint + format enforcement                            |
+| **Commit Convention**  | commitlint         | ^18.6.0        | Conventional commits         | Standardized commit messages, changelog generation   |
+| **IaC**                | Wrangler CLI       | ^3.23.0        | Cloudflare Workers deploy    | Infrastructure as code for Workers                   |
+| **CI/CD**              | GitHub Actions     | N/A            | Automation pipeline          | Native GitHub integration, matrix builds             |
 
 ---
 
@@ -161,6 +163,7 @@ Website Mage uses modern, serverless-first technologies optimized for low operat
 Website Mage uses a multi-tenant data model with `agency_id` as the primary scoping key. All entities relate back to the `agencies` table.
 
 **Hierarchy:**
+
 ```
 agencies (1)
   ↓
@@ -180,6 +183,7 @@ sites (n)
 **Purpose:** Root entity representing each customer organization (agency, freelancer, or individual)
 
 **Key Attributes:**
+
 - `id`: uuid (primary key, auto-generated)
 - `name`: text (agency display name)
 - `tier`: enum `agency_tier` (base | pro | agency) - determines feature access and limits
@@ -189,6 +193,7 @@ sites (n)
 - `updated_at`: timestamptz (last modification)
 
 **Relationships:**
+
 - One-to-many with `agency_members` (team members)
 - One-to-many with `sites` (monitored sites)
 
@@ -199,12 +204,14 @@ sites (n)
 **Purpose:** Authentication and user profile, managed by Supabase Auth
 
 **Key Attributes:**
+
 - `id`: uuid (Supabase Auth managed)
 - `email`: text (unique, verified)
 - `provider`: OAuth provider (google, microsoft, github)
 - `metadata`: jsonb (name, avatar_url from OAuth)
 
 **Relationships:**
+
 - Many-to-many with `agencies` via `agency_members`
 
 ### agency_members
@@ -212,12 +219,14 @@ sites (n)
 **Purpose:** Junction table linking users to agencies with roles
 
 **Key Attributes:**
+
 - `agency_id`: uuid (FK to agencies)
 - `user_id`: uuid (FK to auth.users)
 - `role`: enum `member_role` (admin | staff | client)
 - `created_at`: timestamptz
 
 **Relationships:**
+
 - Many-to-one with `agencies`
 - Many-to-one with `users`
 
@@ -228,6 +237,7 @@ sites (n)
 **Purpose:** Each website being monitored
 
 **Key Attributes:**
+
 - `id`: uuid (primary key)
 - `agency_id`: uuid (FK to agencies, RLS scope)
 - `domain`: text (full URL, e.g., `https://example.com`)
@@ -240,6 +250,7 @@ sites (n)
 **Unique Constraint:** `(agency_id, domain)` - prevents duplicate sites within agency
 
 **Relationships:**
+
 - Many-to-one with `agencies`
 - One-to-many with `uptime_checks`, `psi_results`, `rum_events`, `alerts_sent`
 - Many-to-many with users (role=client) via `client_site_access`
@@ -251,6 +262,7 @@ sites (n)
 **Purpose:** Log every uptime check attempt (5-10 min intervals)
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key, high-volume)
 - `agency_id`: uuid (denormalized for RLS)
 - `site_id`: uuid (FK to sites)
@@ -263,10 +275,12 @@ sites (n)
 - `created_at`: timestamptz
 
 **Indexes:**
+
 - `(site_id, checked_at DESC)` - fast queries for site timeline
 - `(agency_id, checked_at DESC)` - agency-level reporting
 
 **Relationships:**
+
 - Many-to-one with `sites`
 - Logically grouped into `uptime_incidents` when failures occur
 
@@ -277,6 +291,7 @@ sites (n)
 **Purpose:** Track open/closed incident windows (3+ consecutive failures)
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `site_id`: uuid (FK to sites)
@@ -286,6 +301,7 @@ sites (n)
 - `alert_sent_count`: int (default 0, incremented on each alert)
 
 **Relationships:**
+
 - Many-to-one with `sites`
 - One-to-many with `alerts_sent`
 
@@ -296,6 +312,7 @@ sites (n)
 **Purpose:** Store PageSpeed Insights / Lighthouse scan results
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `site_id`: uuid (FK to sites)
@@ -312,10 +329,12 @@ sites (n)
 - `screenshot_url`: text (nullable, Cloudflare R2 URL)
 
 **Indexes:**
+
 - `(site_id, scanned_at DESC)` - trend queries
 - `(agency_id, scanned_at DESC)` - agency rollups
 
 **Materialized View (`psi_latest`):**
+
 - `DISTINCT ON (site_id, device)` - fast dashboard reads for latest scores
 - Refreshed on insert via trigger
 
@@ -326,6 +345,7 @@ sites (n)
 **Purpose:** Raw real user monitoring beacons (high volume, transient)
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `site_id`: uuid (FK to sites)
@@ -338,10 +358,12 @@ sites (n)
 - `lcp_ms`: int, `cls`: numeric(6,3), `inp_ms`: int, `fid_ms`: int, `ttfb_ms`: int, `fcp_ms`: int
 
 **Indexes:**
+
 - `(site_id, ts DESC)` - recent events
 - `(country)` - region filtering
 
 **Relationships:**
+
 - Many-to-one with `sites`
 - Aggregated nightly into `rum_daily_agg`
 
@@ -354,6 +376,7 @@ sites (n)
 **Purpose:** Daily rollups of RUM metrics (p50/p75/p95) for fast querying
 
 **Key Attributes:**
+
 - `site_id`: uuid
 - `day`: date
 - `device`: text (mobile | desktop)
@@ -374,6 +397,7 @@ sites (n)
 **Purpose:** Log every email/SMS alert sent (for usage tracking + billing)
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `site_id`: uuid (nullable if account-level alert)
@@ -384,10 +408,12 @@ sites (n)
 - `meta`: jsonb (SES message ID, Twilio SID, delivery status, errors)
 
 **Indexes:**
+
 - `(agency_id, sent_at DESC)` - usage queries
 - `(site_id, sent_at DESC)` - site-level history
 
 **Relationships:**
+
 - Many-to-one with `sites`, `uptime_incidents`
 
 **Design Decision:** Separate log enables accurate usage/billing tracking; `meta` flexible for provider-specific data.
@@ -397,6 +423,7 @@ sites (n)
 **Purpose:** Track monthly quotas and consumption per agency/site/metric
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `site_id`: uuid (nullable for pooled metrics like Agency RUM)
@@ -415,6 +442,7 @@ sites (n)
 **Purpose:** Grant client users (role=client) access to specific sites only
 
 **Key Attributes:**
+
 - `agency_id`: uuid (denormalized for RLS)
 - `site_id`: uuid (FK to sites)
 - `user_id`: uuid (FK to auth.users)
@@ -423,6 +451,7 @@ sites (n)
 **Primary Key:** `(site_id, user_id)`
 
 **Relationships:**
+
 - Many-to-one with `sites`, `users`
 
 **Design Decision:** Enables granular per-site access control for client role; RLS policies use `EXISTS (SELECT 1 FROM client_site_access WHERE ...)` for authorization.
@@ -432,6 +461,7 @@ sites (n)
 **Purpose:** Compliance and debugging trail for high-impact actions
 
 **Key Attributes:**
+
 - `id`: bigserial (primary key)
 - `agency_id`: uuid
 - `user_id`: uuid (nullable if system action)
@@ -441,6 +471,7 @@ sites (n)
 - `created_at`: timestamptz
 
 **Indexes:**
+
 - `(agency_id, created_at DESC)` - agency audit log view
 - `(site_id, created_at DESC)` - site-specific history
 
@@ -459,6 +490,7 @@ Website Mage is structured as a monorepo with three primary packages plus shared
 **Responsibility:** Server-Side Rendered dashboard application serving agency admins, staff, and client users
 
 **Key Interfaces:**
+
 - `GET /dashboard` - Main dashboard with site list and health cards
 - `GET /sites/:id` - Site detail page with uptime/PSI/RUM tabs
 - `GET /settings` - Account, team, billing, branding, audit log
@@ -466,12 +498,14 @@ Website Mage is structured as a monorepo with three primary packages plus shared
 - `GET /client-dashboard` - Simplified client view (Agency tier)
 
 **Dependencies:**
+
 - Supabase SDK (auth + RLS queries)
 - Cloudflare Workers API (via fetch composable)
 - Stripe.js (billing portal iframe)
 - Sentry (error tracking)
 
 **Technology Stack:**
+
 - Nuxt 4.0 (Vue 3, SSR)
 - TailwindCSS (utility-first styling)
 - Pinia (state management for user session, site list, usage meters)
@@ -479,6 +513,7 @@ Website Mage is structured as a monorepo with three primary packages plus shared
 - VueUse (composable utilities)
 
 **Structure:**
+
 ```
 packages/web/
 ├── app/
@@ -514,6 +549,7 @@ packages/web/
 **Responsibility:** REST API proxy between Nuxt frontend and Supabase with rate limiting
 
 **Key Interfaces:**
+
 - `GET /health` - Health check
 - `POST /psi/scan` - Trigger manual PSI scan (rate limited)
 - `GET /psi/status/:job_id` - Poll scan status
@@ -529,6 +565,7 @@ packages/web/
 **Responsibility:** Scheduled HTTP checks every 5-10 minutes based on tier
 
 **Key Interfaces:**
+
 - Triggered by Cloudflare Cron: `*/5 * * * *` (every 5 min)
 - Queries active sites from Supabase
 - Executes multi-region checks (us-east, eu-west, ap-sg)
@@ -545,6 +582,7 @@ packages/web/
 **Responsibility:** Hourly batch processing of PageSpeed Insights scans
 
 **Key Interfaces:**
+
 - Triggered by Cloudflare Cron: `0 * * * *` (hourly)
 - Queries sites eligible for scheduled scan (Base monthly, Pro/Agency weekly)
 - Calls Google PageSpeed Insights API (mobile + desktop)
@@ -560,6 +598,7 @@ packages/web/
 **Responsibility:** On-demand beacon ingestion from RUM JavaScript
 
 **Key Interfaces:**
+
 - `POST /rum/ingest` - Accepts JSON beacon
 - Validates payload, derives country from Cloudflare header
 - Applies tier-based sampling (Base 25%, Pro 50%, Agency 100%)
@@ -576,6 +615,7 @@ packages/web/
 **Responsibility:** Nightly maintenance jobs
 
 **Key Interfaces:**
+
 - Triggered by Cloudflare Cron: `0 3 * * *` (daily 03:00 UTC)
 - Computes `rum_daily_agg` rollups from previous day's `rum_events`
 - Purges old data per retention policy (uptime 24mo, PSI tier-based, RUM 6-12mo, alerts 6mo, audit 12mo)
@@ -590,6 +630,7 @@ packages/web/
 **Responsibility:** Handle Stripe billing events
 
 **Key Interfaces:**
+
 - `POST /webhooks/stripe` - Receives Stripe webhooks
 - Verifies signature
 - Processes: `checkout.session.completed`, `customer.subscription.updated`, `invoice.payment_succeeded/failed`
@@ -606,6 +647,7 @@ packages/web/
 **Responsibility:** Report metered usage to Stripe
 
 **Key Interfaces:**
+
 - Triggered by Cloudflare Cron: `0 0 1 * *` (1st of month, 00:00 UTC)
 - Queries `usage_counters` for previous month
 - Calculates email overages and SMS totals
@@ -621,6 +663,7 @@ packages/web/
 **Responsibility:** Client-side script embedded on monitored sites to collect real user metrics
 
 **Key Interfaces:**
+
 - Exports single function: `init()` - auto-invoked on script load
 - Reads `data-site` attribute from script tag for site ID
 - Captures Web Vitals (LCP, CLS, INP, TTFB, FCP) using `web-vitals` library patterns
@@ -632,6 +675,7 @@ packages/web/
 **Technology Stack:** TypeScript (compiled to vanilla JS), esbuild
 
 **Bundle Output:**
+
 - `dist/rum.js` (development, source maps)
 - `dist/rum.min.js` (production, <5KB gzipped)
 
@@ -642,6 +686,7 @@ packages/web/
 **Responsibility:** Shared TypeScript types, constants, and utilities used across frontend and Workers
 
 **Key Exports:**
+
 - `types/` - Database schema types (generated from Supabase), API request/response types
 - `constants/` - Agency tiers, metric names, rate limits, caps per tier
 - `utils/` - Date formatting, validation helpers, bot UA patterns
@@ -664,9 +709,11 @@ packages/web/
 - **Rate Limits:** 25,000 queries/day (free tier), 400 queries/100 seconds
 
 **Key Endpoints Used:**
+
 - `GET /runPagespeed?url={url}&strategy={mobile|desktop}&category=performance&key={API_KEY}`
 
 **Integration Notes:**
+
 - Hourly Worker batches up to 50 scans to stay within rate limits
 - Exponential backoff on 429 responses
 - Cache results for debounce intervals (Base 10min, Pro 5min, Agency 3min)
@@ -681,9 +728,11 @@ packages/web/
 - **Rate Limits:** Sandbox 200/day, Production 50/second (adjustable)
 
 **Key Endpoints Used:**
+
 - SMTP protocol for email delivery (no REST calls)
 
 **Integration Notes:**
+
 - Verified domain: `alerts@websitemage.com`
 - Templates stored in Worker code (no SES Templates used at MVP)
 - Track message IDs in `alerts_sent.meta.ses_message_id`
@@ -698,9 +747,11 @@ packages/web/
 - **Rate Limits:** Default 500 SMS/second (adjustable)
 
 **Key Endpoints Used:**
+
 - `POST /Accounts/{AccountSid}/Messages.json` - Send SMS
 
 **Integration Notes:**
+
 - US/Canada only at MVP launch (international in Phase 2)
 - Delivery status via status callback webhook (optional)
 - Cost: $0.0075/SMS, charged to customer at $0.016/SMS (2× markup)
@@ -715,6 +766,7 @@ packages/web/
 - **Rate Limits:** 100 reads/second, 100 writes/second per API key
 
 **Key Endpoints Used:**
+
 - `POST /v1/checkout/sessions` - Create checkout session
 - `POST /v1/billing_portal/sessions` - Generate customer portal URL
 - `POST /v1/subscription_items/{item_id}/usage_records` - Report metered usage
@@ -722,6 +774,7 @@ packages/web/
 - Webhooks received: `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_*`
 
 **Integration Notes:**
+
 - API version pinned: `2023-10-16`
 - Idempotency keys used for all POST requests
 - Webhook signature verification mandatory
@@ -1482,14 +1535,14 @@ Production deploy → Smoke tests → Monitor (Sentry + Cloudflare Analytics)
 
 ### Naming Conventions
 
-| Element | Convention | Example |
-|---------|------------|---------|
-| Files | kebab-case | `uptime-checker.ts`, `psi-scanner.ts` |
-| Classes | PascalCase | `UptimeChecker`, `PSIScanner` |
-| Functions | camelCase | `checkUptime()`, `scanSite()` |
-| Constants | SCREAMING_SNAKE_CASE | `BASE_CHECK_INTERVAL`, `MAX_RETRIES` |
-| Vue Components | PascalCase | `SiteCard.vue`, `UptimeChart.vue` |
-| Composables | camelCase with `use` prefix | `useAuth()`, `useSupabase()` |
+| Element        | Convention                  | Example                               |
+| -------------- | --------------------------- | ------------------------------------- |
+| Files          | kebab-case                  | `uptime-checker.ts`, `psi-scanner.ts` |
+| Classes        | PascalCase                  | `UptimeChecker`, `PSIScanner`         |
+| Functions      | camelCase                   | `checkUptime()`, `scanSite()`         |
+| Constants      | SCREAMING_SNAKE_CASE        | `BASE_CHECK_INTERVAL`, `MAX_RETRIES`  |
+| Vue Components | PascalCase                  | `SiteCard.vue`, `UptimeChart.vue`     |
+| Composables    | camelCase with `use` prefix | `useAuth()`, `useSupabase()`          |
 
 ### Critical Rules
 
@@ -1522,12 +1575,14 @@ Production deploy → Smoke tests → Monitor (Sentry + Cloudflare Analytics)
 - **Coverage Requirement:** ≥90% for utilities, ≥80% for Workers
 
 **AI Agent Requirements:**
+
 - Generate tests for all public functions and exported composables
 - Cover edge cases: empty arrays, null values, boundary conditions (e.g., sampling 0%, 100%)
 - Follow AAA pattern (Arrange, Act, Assert)
 - Mock all external dependencies (Supabase, fetch, KV)
 
 **Example:**
+
 ```typescript
 // sampler.test.ts
 import { describe, it, expect } from 'vitest';
@@ -1558,6 +1613,7 @@ describe('applySampling', () => {
   - **External APIs:** WireMock or MSW (Mock Service Worker) for PSI/Stripe/SES/Twilio
 
 **Example:**
+
 ```typescript
 // api/tests/integration/psi.test.ts
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -1579,9 +1635,15 @@ describe('PSI API endpoint', () => {
   it('should return 429 when rate limit exceeded', async () => {
     // Simulate rate limit by calling 10 times rapidly
     for (let i = 0; i < 10; i++) {
-      await worker.fetch('/psi/scan', { method: 'POST', body: JSON.stringify({ site_id: 'test' }) });
+      await worker.fetch('/psi/scan', {
+        method: 'POST',
+        body: JSON.stringify({ site_id: 'test' }),
+      });
     }
-    const response = await worker.fetch('/psi/scan', { method: 'POST', body: JSON.stringify({ site_id: 'test' }) });
+    const response = await worker.fetch('/psi/scan', {
+      method: 'POST',
+      body: JSON.stringify({ site_id: 'test' }),
+    });
     expect(response.status).toBe(429);
   });
 });
@@ -1595,6 +1657,7 @@ describe('PSI API endpoint', () => {
 - **Test Data:** Seeded test agency (`test-agency-e2e@example.com`) with known sites
 
 **Example:**
+
 ```typescript
 // tests/e2e/site-crud.spec.ts
 import { test, expect } from '@playwright/test';
@@ -1644,6 +1707,7 @@ test.describe('Site CRUD', () => {
   - Whitelist approach: define expected fields, reject unexpected properties
 
 **Example:**
+
 ```typescript
 import { z } from 'zod';
 
@@ -1691,6 +1755,7 @@ if (!validated.success) {
 - **HTTPS Enforcement:** All domains HTTPS-only via Cloudflare, HSTS preload
 
 **Content-Security-Policy:**
+
 ```
 default-src 'self';
 script-src 'self' https://*.supabase.co https://js.stripe.com https://*.sentry.io https://*.cloudflare.com;
@@ -1762,6 +1827,7 @@ After completing this Architecture document:
    - Create internal monitoring dashboard (Cloudflare Analytics + Supabase metrics)
 
 **Key Reference Documents:**
+
 - PRD: `docs/prd.md` (requirements and acceptance criteria)
 - Architecture: `docs/architecture.md` (this document - technical blueprint)
 - Stories: `docs/stories/` (individual story implementation guides)

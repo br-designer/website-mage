@@ -51,105 +51,107 @@ This epic delivers complete billing capabilities:
 #### Technical Notes
 
 **Stripe Configuration Script:**
+
 ```typescript
 // scripts/setup-stripe-catalog.ts
-import Stripe from 'stripe'
+import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16'
-})
+  apiVersion: '2023-10-16',
+});
 
 async function setupCatalog() {
   // Base Tier
   const baseProduct = await stripe.products.create({
     name: 'Website Mage Base',
     description: 'Essential monitoring for individual sites',
-    metadata: { tier: 'base', sites_included: '1' }
-  })
-  
+    metadata: { tier: 'base', sites_included: '1' },
+  });
+
   const basePrice = await stripe.prices.create({
     product: baseProduct.id,
     unit_amount: 100, // $1.00
     currency: 'usd',
     recurring: { interval: 'month' },
-    metadata: { tier: 'base' }
-  })
-  
+    metadata: { tier: 'base' },
+  });
+
   // Pro Tier
   const proProduct = await stripe.products.create({
     name: 'Website Mage Pro',
     description: 'Advanced monitoring with faster checks',
-    metadata: { tier: 'pro', sites_included: '1' }
-  })
-  
+    metadata: { tier: 'pro', sites_included: '1' },
+  });
+
   const proPrice = await stripe.prices.create({
     product: proProduct.id,
     unit_amount: 500, // $5.00
     currency: 'usd',
     recurring: { interval: 'month' },
-    metadata: { tier: 'pro' }
-  })
-  
+    metadata: { tier: 'pro' },
+  });
+
   // Agency Tier
   const agencyProduct = await stripe.products.create({
     name: 'Website Mage Agency',
     description: 'White-label solution for agencies',
-    metadata: { tier: 'agency', sites_included: '25' }
-  })
-  
+    metadata: { tier: 'agency', sites_included: '25' },
+  });
+
   const agencyPrice = await stripe.prices.create({
     product: agencyProduct.id,
     unit_amount: 2500, // $25.00 (25-site bundle)
     currency: 'usd',
     recurring: { interval: 'month' },
-    metadata: { tier: 'agency' }
-  })
-  
+    metadata: { tier: 'agency' },
+  });
+
   // Metered Usage Products
   const emailOverageProduct = await stripe.products.create({
     name: 'Email Overage',
-    description: 'Additional email alerts beyond plan limit'
-  })
-  
+    description: 'Additional email alerts beyond plan limit',
+  });
+
   const emailOveragePrice = await stripe.prices.create({
     product: emailOverageProduct.id,
     unit_amount: 1, // $0.01
     currency: 'usd',
     recurring: {
       interval: 'month',
-      usage_type: 'metered'
-    }
-  })
-  
+      usage_type: 'metered',
+    },
+  });
+
   const smsProduct = await stripe.products.create({
     name: 'SMS Alerts',
-    description: 'SMS alert delivery'
-  })
-  
+    description: 'SMS alert delivery',
+  });
+
   const smsPrice = await stripe.prices.create({
     product: smsProduct.id,
     unit_amount: 2, // $0.016 rounded to $0.02
     currency: 'usd',
     recurring: {
       interval: 'month',
-      usage_type: 'metered'
-    }
-  })
-  
-  console.log('Stripe catalog created successfully')
+      usage_type: 'metered',
+    },
+  });
+
+  console.log('Stripe catalog created successfully');
   console.log({
     base: { product: baseProduct.id, price: basePrice.id },
     pro: { product: proProduct.id, price: proPrice.id },
     agency: { product: agencyProduct.id, price: agencyPrice.id },
     email_overage: { product: emailOverageProduct.id, price: emailOveragePrice.id },
-    sms: { product: smsProduct.id, price: smsPrice.id }
-  })
+    sms: { product: smsProduct.id, price: smsPrice.id },
+  });
 }
 
-setupCatalog()
+setupCatalog();
 ```
 
 **Environment Variables:**
+
 ```env
 # .env
 STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -189,11 +191,12 @@ STRIPE_PRICE_SMS=price_...
 #### Technical Notes
 
 **Billing Page Component:**
+
 ```vue
 <template>
   <div class="billing-page">
     <h1>Choose Your Plan</h1>
-    
+
     <div class="plan-cards">
       <div v-for="plan in plans" :key="plan.tier" class="plan-card">
         <div class="plan-header">
@@ -203,15 +206,12 @@ STRIPE_PRICE_SMS=price_...
             <span class="unit">{{ plan.priceUnit }}</span>
           </div>
         </div>
-        
+
         <ul class="features">
           <li v-for="feature in plan.features" :key="feature">{{ feature }}</li>
         </ul>
-        
-        <button 
-          @click="selectPlan(plan.tier)"
-          :class="{ 'btn-current': isCurrentPlan(plan.tier) }"
-        >
+
+        <button @click="selectPlan(plan.tier)" :class="{ 'btn-current': isCurrentPlan(plan.tier) }">
           {{ isCurrentPlan(plan.tier) ? 'Current Plan' : 'Select Plan' }}
         </button>
       </div>
@@ -271,7 +271,7 @@ async function selectPlan(tier: string) {
     pro: import.meta.env.VITE_STRIPE_PRICE_PRO,
     agency: import.meta.env.VITE_STRIPE_PRICE_AGENCY
   }
-  
+
   const response = await $fetch('/api/billing/create-checkout', {
     method: 'POST',
     body: {
@@ -279,7 +279,7 @@ async function selectPlan(tier: string) {
       quantity: tier === 'agency' ? 1 : 1 // Default 1 site or 1 bundle
     }
   })
-  
+
   // Redirect to Stripe Checkout
   window.location.href = response.url
 }
@@ -287,49 +287,50 @@ async function selectPlan(tier: string) {
 ```
 
 **API Endpoint:**
+
 ```typescript
 // packages/workers/api/src/routes/billing.ts
-import { Hono } from 'hono'
-import Stripe from 'stripe'
+import { Hono } from 'hono';
+import Stripe from 'stripe';
 
-const billing = new Hono()
+const billing = new Hono();
 
 billing.post('/create-checkout', async (c) => {
-  const { price_id, quantity } = await c.req.json()
-  const user = c.get('user') // from auth middleware
-  
+  const { price_id, quantity } = await c.req.json();
+  const user = c.get('user'); // from auth middleware
+
   const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16'
-  })
-  
+    apiVersion: '2023-10-16',
+  });
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer_email: user.email,
     line_items: [
       {
         price: price_id,
-        quantity: quantity
-      }
+        quantity: quantity,
+      },
     ],
     metadata: {
       agency_id: user.agency_id,
-      user_id: user.id
+      user_id: user.id,
     },
     subscription_data: {
       trial_period_days: 30,
       metadata: {
-        agency_id: user.agency_id
-      }
+        agency_id: user.agency_id,
+      },
     },
     success_url: `https://app.websitemage.com/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `https://app.websitemage.com/billing`,
-    automatic_tax: { enabled: true }
-  })
-  
-  return c.json({ url: session.url })
-})
+    automatic_tax: { enabled: true },
+  });
 
-export default billing
+  return c.json({ url: session.url });
+});
+
+export default billing;
 ```
 
 ---
@@ -357,147 +358,132 @@ export default billing
 #### Technical Notes
 
 **Webhook Worker:**
+
 ```typescript
 // packages/workers/stripe-webhook/src/index.ts
-import { Hono } from 'hono'
-import Stripe from 'stripe'
+import { Hono } from 'hono';
+import Stripe from 'stripe';
 
-const app = new Hono()
+const app = new Hono();
 
 app.post('/webhooks/stripe', async (c) => {
-  const signature = c.req.header('stripe-signature')
-  const body = await c.req.text()
-  
+  const signature = c.req.header('stripe-signature');
+  const body = await c.req.text();
+
   const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16'
-  })
-  
-  let event
+    apiVersion: '2023-10-16',
+  });
+
+  let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      c.env.STRIPE_WEBHOOK_SECRET
-    )
+    event = stripe.webhooks.constructEvent(body, signature, c.env.STRIPE_WEBHOOK_SECRET);
   } catch (error) {
-    console.error('Webhook signature verification failed:', error)
-    return c.json({ error: 'Invalid signature' }, 400)
+    console.error('Webhook signature verification failed:', error);
+    return c.json({ error: 'Invalid signature' }, 400);
   }
-  
+
   // Check idempotency
-  const { data: existing } = await c.env.SUPABASE
-    .from('webhook_events')
+  const { data: existing } = await c.env.SUPABASE.from('webhook_events')
     .select('id')
     .eq('stripe_event_id', event.id)
-    .single()
-  
+    .single();
+
   if (existing) {
-    console.log(`Event ${event.id} already processed`)
-    return c.json({ received: true })
+    console.log(`Event ${event.id} already processed`);
+    return c.json({ received: true });
   }
-  
+
   try {
-    await handleWebhookEvent(c.env, event)
-    
+    await handleWebhookEvent(c.env, event);
+
     // Log webhook event
-    await c.env.SUPABASE
-      .from('webhook_events')
-      .insert({
-        stripe_event_id: event.id,
-        type: event.type,
-        processed_at: new Date().toISOString()
-      })
-    
-    return c.json({ received: true })
+    await c.env.SUPABASE.from('webhook_events').insert({
+      stripe_event_id: event.id,
+      type: event.type,
+      processed_at: new Date().toISOString(),
+    });
+
+    return c.json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error)
-    return c.json({ error: 'Processing failed' }, 500)
+    console.error('Webhook processing error:', error);
+    return c.json({ error: 'Processing failed' }, 500);
   }
-})
+});
 
 async function handleWebhookEvent(env: Env, event: Stripe.Event) {
   switch (event.type) {
     case 'checkout.session.completed':
-      await handleCheckoutComplete(env, event.data.object as Stripe.Checkout.Session)
-      break
+      await handleCheckoutComplete(env, event.data.object as Stripe.Checkout.Session);
+      break;
     case 'customer.subscription.updated':
-      await handleSubscriptionUpdated(env, event.data.object as Stripe.Subscription)
-      break
+      await handleSubscriptionUpdated(env, event.data.object as Stripe.Subscription);
+      break;
     case 'customer.subscription.deleted':
-      await handleSubscriptionDeleted(env, event.data.object as Stripe.Subscription)
-      break
+      await handleSubscriptionDeleted(env, event.data.object as Stripe.Subscription);
+      break;
     case 'invoice.payment_succeeded':
-      await handlePaymentSucceeded(env, event.data.object as Stripe.Invoice)
-      break
+      await handlePaymentSucceeded(env, event.data.object as Stripe.Invoice);
+      break;
     case 'invoice.payment_failed':
-      await handlePaymentFailed(env, event.data.object as Stripe.Invoice)
-      break
+      await handlePaymentFailed(env, event.data.object as Stripe.Invoice);
+      break;
   }
 }
 
 async function handleCheckoutComplete(env: Env, session: Stripe.Checkout.Session) {
-  const agencyId = session.metadata.agency_id
-  const subscription = session.subscription as string
-  
-  await env.SUPABASE
-    .from('subscriptions')
-    .insert({
-      agency_id: agencyId,
-      stripe_subscription_id: subscription,
-      stripe_customer_id: session.customer as string,
-      status: 'trialing', // 30-day trial
-      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    })
-  
-  console.log(`Subscription created for agency ${agencyId}`)
+  const agencyId = session.metadata.agency_id;
+  const subscription = session.subscription as string;
+
+  await env.SUPABASE.from('subscriptions').insert({
+    agency_id: agencyId,
+    stripe_subscription_id: subscription,
+    stripe_customer_id: session.customer as string,
+    status: 'trialing', // 30-day trial
+    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+
+  console.log(`Subscription created for agency ${agencyId}`);
 }
 
 async function handleSubscriptionUpdated(env: Env, subscription: Stripe.Subscription) {
-  await env.SUPABASE
-    .from('subscriptions')
+  await env.SUPABASE.from('subscriptions')
     .update({
       status: subscription.status,
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
     })
-    .eq('stripe_subscription_id', subscription.id)
+    .eq('stripe_subscription_id', subscription.id);
 }
 
 async function handlePaymentSucceeded(env: Env, invoice: Stripe.Invoice) {
-  const subscription = invoice.subscription as string
-  
-  await env.SUPABASE
-    .from('subscriptions')
+  const subscription = invoice.subscription as string;
+
+  await env.SUPABASE.from('subscriptions')
     .update({ status: 'active' })
-    .eq('stripe_subscription_id', subscription)
-  
+    .eq('stripe_subscription_id', subscription);
+
   // Resume services
-  const { data: sub } = await env.SUPABASE
-    .from('subscriptions')
+  const { data: sub } = await env.SUPABASE.from('subscriptions')
     .select('agency_id')
     .eq('stripe_subscription_id', subscription)
-    .single()
-  
+    .single();
+
   if (sub) {
-    await env.SUPABASE
-      .from('agencies')
-      .update({ service_paused: false })
-      .eq('id', sub.agency_id)
+    await env.SUPABASE.from('agencies').update({ service_paused: false }).eq('id', sub.agency_id);
   }
 }
 
 async function handlePaymentFailed(env: Env, invoice: Stripe.Invoice) {
-  const subscription = invoice.subscription as string
-  
-  await env.SUPABASE
-    .from('subscriptions')
+  const subscription = invoice.subscription as string;
+
+  await env.SUPABASE.from('subscriptions')
     .update({ status: 'past_due' })
-    .eq('stripe_subscription_id', subscription)
-  
+    .eq('stripe_subscription_id', subscription);
+
   // Trigger dunning email (Epic 5 integration)
   // await sendDunningEmail(env, subscription)
 }
 
-export default app
+export default app;
 ```
 
 ---
@@ -525,56 +511,49 @@ export default app
 #### Technical Notes
 
 **Trial Reminder Worker:**
+
 ```typescript
 // packages/workers/cron/src/trial-reminders.ts
 export async function sendTrialReminders(env: Env) {
-  const fiveDaysFromNow = new Date()
-  fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5)
-  
-  const oneDayFromNow = new Date()
-  oneDayFromNow.setDate(oneDayFromNow.getDate() + 1)
-  
+  const fiveDaysFromNow = new Date();
+  fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+
+  const oneDayFromNow = new Date();
+  oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
+
   // Get subscriptions expiring in 5 days
-  const { data: expiring5d } = await env.SUPABASE
-    .from('subscriptions')
+  const { data: expiring5d } = await env.SUPABASE.from('subscriptions')
     .select('*, agencies(admin_email)')
     .eq('status', 'trialing')
     .lte('current_period_end', fiveDaysFromNow.toISOString())
     .gte('current_period_end', oneDayFromNow.toISOString())
-    .is('reminder_5d_sent', null)
-  
+    .is('reminder_5d_sent', null);
+
   for (const sub of expiring5d || []) {
     await sendEmail(env, {
       to: sub.agencies.admin_email,
       subject: 'Your Website Mage trial ends in 5 days',
-      body: `Your trial ends on ${sub.current_period_end}. You'll be automatically charged unless you cancel.`
-    })
-    
-    await env.SUPABASE
-      .from('subscriptions')
-      .update({ reminder_5d_sent: true })
-      .eq('id', sub.id)
+      body: `Your trial ends on ${sub.current_period_end}. You'll be automatically charged unless you cancel.`,
+    });
+
+    await env.SUPABASE.from('subscriptions').update({ reminder_5d_sent: true }).eq('id', sub.id);
   }
-  
+
   // Get subscriptions expiring in 1 day
-  const { data: expiring1d } = await env.SUPABASE
-    .from('subscriptions')
+  const { data: expiring1d } = await env.SUPABASE.from('subscriptions')
     .select('*, agencies(admin_email)')
     .eq('status', 'trialing')
     .lte('current_period_end', oneDayFromNow.toISOString())
-    .is('reminder_1d_sent', null)
-  
+    .is('reminder_1d_sent', null);
+
   for (const sub of expiring1d || []) {
     await sendEmail(env, {
       to: sub.agencies.admin_email,
       subject: 'Your Website Mage trial ends tomorrow',
-      body: `Your trial ends tomorrow. You'll be charged unless you cancel today.`
-    })
-    
-    await env.SUPABASE
-      .from('subscriptions')
-      .update({ reminder_1d_sent: true })
-      .eq('id', sub.id)
+      body: `Your trial ends tomorrow. You'll be charged unless you cancel today.`,
+    });
+
+    await env.SUPABASE.from('subscriptions').update({ reminder_1d_sent: true }).eq('id', sub.id);
   }
 }
 ```
@@ -604,65 +583,55 @@ export async function sendTrialReminders(env: Env) {
 #### Technical Notes
 
 **Service Pause Logic:**
+
 ```typescript
 // In webhook handler
 async function handlePaymentFailed(env: Env, invoice: Stripe.Invoice) {
-  const subscription = invoice.subscription as string
-  
-  await env.SUPABASE
-    .from('subscriptions')
+  const subscription = invoice.subscription as string;
+
+  await env.SUPABASE.from('subscriptions')
     .update({ status: 'past_due' })
-    .eq('stripe_subscription_id', subscription)
-  
-  const { data: sub } = await env.SUPABASE
-    .from('subscriptions')
+    .eq('stripe_subscription_id', subscription);
+
+  const { data: sub } = await env.SUPABASE.from('subscriptions')
     .select('agency_id, attempt_count')
     .eq('stripe_subscription_id', subscription)
-    .single()
-  
-  const attemptCount = (sub.attempt_count || 0) + 1
-  
-  await env.SUPABASE
-    .from('subscriptions')
-    .update({ attempt_count: attemptCount })
-    .eq('id', sub.id)
-  
+    .single();
+
+  const attemptCount = (sub.attempt_count || 0) + 1;
+
+  await env.SUPABASE.from('subscriptions').update({ attempt_count: attemptCount }).eq('id', sub.id);
+
   // Send dunning email
-  await sendDunningEmail(env, sub.agency_id, attemptCount)
-  
+  await sendDunningEmail(env, sub.agency_id, attemptCount);
+
   // If final attempt failed, pause service
   if (attemptCount >= 4) {
-    await env.SUPABASE
-      .from('agencies')
-      .update({ service_paused: true })
-      .eq('id', sub.agency_id)
-    
-    await env.SUPABASE
-      .from('subscriptions')
-      .update({ status: 'unpaid' })
-      .eq('id', sub.id)
-    
-    console.log(`Service paused for agency ${sub.agency_id}`)
+    await env.SUPABASE.from('agencies').update({ service_paused: true }).eq('id', sub.agency_id);
+
+    await env.SUPABASE.from('subscriptions').update({ status: 'unpaid' }).eq('id', sub.id);
+
+    console.log(`Service paused for agency ${sub.agency_id}`);
   }
 }
 ```
 
 **Worker Checks:**
+
 ```typescript
 // In uptime/psi/rum workers
 export async function shouldProcessAgency(env: Env, agencyId: string): Promise<boolean> {
-  const { data: agency } = await env.SUPABASE
-    .from('agencies')
+  const { data: agency } = await env.SUPABASE.from('agencies')
     .select('service_paused')
     .eq('id', agencyId)
-    .single()
-  
+    .single();
+
   if (agency?.service_paused) {
-    console.log(`Skipping paused agency ${agencyId}`)
-    return false
+    console.log(`Skipping paused agency ${agencyId}`);
+    return false;
   }
-  
-  return true
+
+  return true;
 }
 ```
 
@@ -692,60 +661,64 @@ export async function shouldProcessAgency(env: Env, agencyId: string): Promise<b
 #### Technical Notes
 
 **Plan Change API:**
+
 ```typescript
 billing.post('/change-plan', async (c) => {
-  const { new_price_id, quantity } = await c.req.json()
-  const user = c.get('user')
-  
-  const { data: subscription } = await c.env.SUPABASE
-    .from('subscriptions')
+  const { new_price_id, quantity } = await c.req.json();
+  const user = c.get('user');
+
+  const { data: subscription } = await c.env.SUPABASE.from('subscriptions')
     .select('stripe_subscription_id')
     .eq('agency_id', user.agency_id)
-    .single()
-  
+    .single();
+
   const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16'
-  })
-  
+    apiVersion: '2023-10-16',
+  });
+
   // Get current subscription
-  const stripeSub = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
-  
+  const stripeSub = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id);
+
   // Determine if upgrade or downgrade
-  const currentAmount = stripeSub.items.data[0].price.unit_amount
-  const newPrice = await stripe.prices.retrieve(new_price_id)
-  const isUpgrade = newPrice.unit_amount > currentAmount
-  
+  const currentAmount = stripeSub.items.data[0].price.unit_amount;
+  const newPrice = await stripe.prices.retrieve(new_price_id);
+  const isUpgrade = newPrice.unit_amount > currentAmount;
+
   if (isUpgrade) {
     // Immediate upgrade with proration
     await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-      items: [{
-        id: stripeSub.items.data[0].id,
-        price: new_price_id,
-        quantity: quantity
-      }],
-      proration_behavior: 'always_invoice'
-    })
-    
-    return c.json({ message: 'Plan upgraded successfully', immediate: true })
+      items: [
+        {
+          id: stripeSub.items.data[0].id,
+          price: new_price_id,
+          quantity: quantity,
+        },
+      ],
+      proration_behavior: 'always_invoice',
+    });
+
+    return c.json({ message: 'Plan upgraded successfully', immediate: true });
   } else {
     // Downgrade at period end
     await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-      items: [{
-        id: stripeSub.items.data[0].id,
-        price: new_price_id,
-        quantity: quantity
-      }],
+      items: [
+        {
+          id: stripeSub.items.data[0].id,
+          price: new_price_id,
+          quantity: quantity,
+        },
+      ],
       proration_behavior: 'none',
-      billing_cycle_anchor: 'unchanged'
-    })
-    
-    return c.json({ 
+      billing_cycle_anchor: 'unchanged',
+    });
+
+    return c.json({
       message: 'Plan change scheduled',
       immediate: false,
-      effective_date: new Date(stripeSub.current_period_end * 1000)
-    })
+      effective_date: new Date(stripeSub.current_period_end * 1000),
+    });
   }
-})
+});
 ```
 
 ---
@@ -773,48 +746,48 @@ billing.post('/change-plan', async (c) => {
 #### Technical Notes
 
 **Metered Usage Worker:**
+
 ```typescript
 // packages/workers/cron/src/metered-usage.ts
 export async function reportMeteredUsage(env: Env) {
-  const lastMonth = new Date()
-  lastMonth.setMonth(lastMonth.getMonth() - 1)
-  const monthStr = lastMonth.toISOString().substring(0, 7)
-  
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  const monthStr = lastMonth.toISOString().substring(0, 7);
+
   const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16'
-  })
-  
+    apiVersion: '2023-10-16',
+  });
+
   // Get all agencies with subscriptions
-  const { data: subscriptions } = await env.SUPABASE
-    .from('subscriptions')
+  const { data: subscriptions } = await env.SUPABASE.from('subscriptions')
     .select('*, agencies(*), usage_counters(*)')
-    .eq('status', 'active')
-  
+    .eq('status', 'active');
+
   for (const sub of subscriptions || []) {
     // Email overages
-    const emailUsage = sub.usage_counters.find(u => u.metric === 'email' && u.month === monthStr)
+    const emailUsage = sub.usage_counters.find((u) => u.metric === 'email' && u.month === monthStr);
     if (emailUsage && emailUsage.used > emailUsage.cap) {
-      const overage = emailUsage.used - emailUsage.cap
-      
+      const overage = emailUsage.used - emailUsage.cap;
+
       try {
         await stripe.subscriptionItems.createUsageRecord(
           sub.email_overage_item_id,
           {
             quantity: overage,
             timestamp: Math.floor(Date.now() / 1000),
-            action: 'set'
+            action: 'set',
           },
           { idempotencyKey: `${sub.agency_id}_${monthStr}_email` }
-        )
-        
-        console.log(`Reported ${overage} email overages for ${sub.agency_id}`)
+        );
+
+        console.log(`Reported ${overage} email overages for ${sub.agency_id}`);
       } catch (error) {
-        console.error(`Failed to report email usage:`, error)
+        console.error(`Failed to report email usage:`, error);
       }
     }
-    
+
     // SMS usage
-    const smsUsage = sub.usage_counters.find(u => u.metric === 'sms' && u.month === monthStr)
+    const smsUsage = sub.usage_counters.find((u) => u.metric === 'sms' && u.month === monthStr);
     if (smsUsage && smsUsage.used > 0) {
       try {
         await stripe.subscriptionItems.createUsageRecord(
@@ -822,14 +795,14 @@ export async function reportMeteredUsage(env: Env) {
           {
             quantity: smsUsage.used,
             timestamp: Math.floor(Date.now() / 1000),
-            action: 'set'
+            action: 'set',
           },
           { idempotencyKey: `${sub.agency_id}_${monthStr}_sms` }
-        )
-        
-        console.log(`Reported ${smsUsage.used} SMS for ${sub.agency_id}`)
+        );
+
+        console.log(`Reported ${smsUsage.used} SMS for ${sub.agency_id}`);
       } catch (error) {
-        console.error(`Failed to report SMS usage:`, error)
+        console.error(`Failed to report SMS usage:`, error);
       }
     }
   }
@@ -860,6 +833,7 @@ export async function reportMeteredUsage(env: Env) {
 #### Technical Notes
 
 **Cancellation Flow:**
+
 - User manages cancellation through Stripe Customer Portal
 - Webhook `customer.subscription.updated` with `cancel_at_period_end=true` triggers dashboard notification
 - On period end, webhook `customer.subscription.deleted` marks subscription as canceled and pauses services
@@ -885,14 +859,17 @@ export async function reportMeteredUsage(env: Env) {
 ## Dependencies & Prerequisites
 
 **Requires Epic 5 Completion:**
+
 - Alert usage tracking for metered billing
 
 **New Services Needed:**
+
 - Stripe account (test and live mode)
 - Stripe Tax configuration
 - Webhook endpoint configured in Stripe Dashboard
 
 **After Epic 6 Completion:**
+
 - Subscription management fully operational
 - Revenue collection automated
 - Metered billing tracking usage

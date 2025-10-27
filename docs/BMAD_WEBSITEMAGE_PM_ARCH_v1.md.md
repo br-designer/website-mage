@@ -23,15 +23,15 @@ Enable recurring revenue through subscription tiers.
 Stay lightweight and cost-efficient—built entirely on serverless and managed infrastructure.
 
 1.3 Target Users
-Segment	Description	Example Use Case
-Agency Owners	Manage multiple client sites under one account	Monitor 50+ client sites; generate monthly reports
-Freelancers	Handle handful of client projects	Offer performance plans post-build
-Single-Site Owners	DIY monitoring of own business site	Receive alerts & speed improvement tips
+Segment Description Example Use Case
+Agency Owners Manage multiple client sites under one account Monitor 50+ client sites; generate monthly reports
+Freelancers Handle handful of client projects Offer performance plans post-build
+Single-Site Owners DIY monitoring of own business site Receive alerts & speed improvement tips
 1.4 Business Model
-Plan	Price	Scope	Highlights
-Base	$1 / site / mo	Small businesses	10-min uptime checks, monthly PSI, 25% RUM sampling
-Pro	$5 / site / mo	Active freelancers	5-min checks, weekly PSI, 50% RUM
-Agency	$25 / 25 sites bundle / mo	Agencies	5-min pooled checks, weekly PSI, 100% RUM, custom branding + domains
+Plan Price Scope Highlights
+Base $1 / site / mo Small businesses 10-min uptime checks, monthly PSI, 25% RUM sampling
+Pro $5 / site / mo Active freelancers 5-min checks, weekly PSI, 50% RUM
+Agency $25 / 25 sites bundle / mo Agencies 5-min pooled checks, weekly PSI, 100% RUM, custom branding + domains
 
 Add-ons: SMS alerts ($0.016 ea), email overages ($0.01 ea), future RUM packs.
 
@@ -45,82 +45,81 @@ Average TTFB improvement trend across portfolio
 
 2 Architecture Summary
 2.1 High-Level Overview
-                          ┌────────────────────┐
-                          │   Marketing Site   │
-                          │ websitemage.com    │
-                          └────────┬───────────┘
-                                   │
-                                   ▼
-        ┌──────────────────────────────────────────────────┐
-        │              Authenticated  Dashboard             │
-        │               app.websitemage.com                │
-        │  (Nuxt 4 SSR · Tailwind · Sentry)                │
-        └───────────────┬───────────────────────────────────┘
-                        │GraphQL / REST
-                        ▼
-          ┌────────────────────────────┐
-          │        API Gateway          │
-          │    api.websitemage.com     │
-          │ Cloudflare Workers + KV    │
-          └───────────┬────────────────┘
-                      │
-                      ▼
-         ┌───────────────────────────────┐
-         │        Supabase Backend        │
-         │  Postgres · Auth · Storage     │
-         │  RLS by agency_id · Edge Fns  │
-         └──────────────┬────────────────┘
-                        │
-                        ▼
-        ┌──────────────────────────────────────────────┐
-        │                Third-Party Services           │
-        │ Stripe · SES · Twilio · Sentry · Cloudflare R2 │
-        └──────────────────────────────────────────────┘
+┌────────────────────┐
+│ Marketing Site │
+│ websitemage.com │
+└────────┬───────────┘
+│
+▼
+┌──────────────────────────────────────────────────┐
+│ Authenticated Dashboard │
+│ app.websitemage.com │
+│ (Nuxt 4 SSR · Tailwind · Sentry) │
+└───────────────┬───────────────────────────────────┘
+│GraphQL / REST
+▼
+┌────────────────────────────┐
+│ API Gateway │
+│ api.websitemage.com │
+│ Cloudflare Workers + KV │
+└───────────┬────────────────┘
+│
+▼
+┌───────────────────────────────┐
+│ Supabase Backend │
+│ Postgres · Auth · Storage │
+│ RLS by agency_id · Edge Fns │
+└──────────────┬────────────────┘
+│
+▼
+┌──────────────────────────────────────────────┐
+│ Third-Party Services │
+│ Stripe · SES · Twilio · Sentry · Cloudflare R2 │
+└──────────────────────────────────────────────┘
 
         RUM CDN → cdn.websitemage.com/rum.js
         Uptime & Cron Jobs → Cloudflare Workers (global + US-East)
 
 2.2 Domain Map
-Domain	Role	Hosted On	Notes
-websitemage.com	Marketing + Docs	Netlify / Cloudflare Pages	Public site
-app.websitemage.com	Dashboard	Netlify (Pro)	Auth users only
-api.websitemage.com	API gateway (Workers)	Cloudflare Workers	JSON/GraphQL proxy to Supabase
-cdn.websitemage.com	Static CDN (RUM JS)	Cloudflare R2 + Cache	1-year TTL
-status.websitemage.com	(Phase 2) Status page	TBD	Optional later
+Domain Role Hosted On Notes
+websitemage.com Marketing + Docs Netlify / Cloudflare Pages Public site
+app.websitemage.com Dashboard Netlify (Pro) Auth users only
+api.websitemage.com API gateway (Workers) Cloudflare Workers JSON/GraphQL proxy to Supabase
+cdn.websitemage.com Static CDN (RUM JS) Cloudflare R2 + Cache 1-year TTL
+status.websitemage.com (Phase 2) Status page TBD Optional later
 2.3 Deployment Environments
-Env	Purpose	Supabase Project	Stripe Mode	Domain	Notes
-Dev	Local dev / sandbox	websitemage-dev	Test	dev.websitemage.com	Seed data for testing
-Staging	QA / pre-release	websitemage-staging	Test	staging.websitemage.com	Mirrors production
-Prod	Live system	websitemage-prod	Live	app.websitemage.com	Customer data only
+Env Purpose Supabase Project Stripe Mode Domain Notes
+Dev Local dev / sandbox websitemage-dev Test dev.websitemage.com Seed data for testing
+Staging QA / pre-release websitemage-staging Test staging.websitemage.com Mirrors production
+Prod Live system websitemage-prod Live app.websitemage.com Customer data only
 
 All three share identical schema migrations via CI/CD.
 
 2.4 Stack Components Summary
-Layer	Technology	Purpose
-Frontend	Nuxt 4 + Tailwind + TypeScript	SSR dashboard and client views
-Auth	Supabase Auth + OAuth (Google / Microsoft / GitHub)	User authentication & session mgmt
-Database	Supabase Postgres with RLS	Multi-tenant data storage per agency
-API Layer	Cloudflare Workers + KV + Durable Objects	Routing, rate-limits, cron, RUM ingestion
-Storage/CDN	Cloudflare R2 + Supabase Storage	RUM JS, PSI screenshots, PDF reports
-Billing	Stripe Subscriptions + Metered usage	Plan billing, email/SMS overages
-Notifications	AWS SES (email) · Twilio (SMS)	Alerting & dunning emails
-Monitoring	Sentry · Cloudflare Logs · Supabase Logs	Internal error tracking
-Backups	Supabase automated daily + optional S3	7 → 30-day retention
-Infrastructure	Netlify frontend + Cloudflare Workers backend	Global edge deployment
+Layer Technology Purpose
+Frontend Nuxt 4 + Tailwind + TypeScript SSR dashboard and client views
+Auth Supabase Auth + OAuth (Google / Microsoft / GitHub) User authentication & session mgmt
+Database Supabase Postgres with RLS Multi-tenant data storage per agency
+API Layer Cloudflare Workers + KV + Durable Objects Routing, rate-limits, cron, RUM ingestion
+Storage/CDN Cloudflare R2 + Supabase Storage RUM JS, PSI screenshots, PDF reports
+Billing Stripe Subscriptions + Metered usage Plan billing, email/SMS overages
+Notifications AWS SES (email) · Twilio (SMS) Alerting & dunning emails
+Monitoring Sentry · Cloudflare Logs · Supabase Logs Internal error tracking
+Backups Supabase automated daily + optional S3 7 → 30-day retention
+Infrastructure Netlify frontend + Cloudflare Workers backend Global edge deployment
 2.5 Core Worker Topology
-              ┌───────────────────────────────────────────┐
-              │           Cloudflare Workers Layer         │
-              ├───────────────────────────────────────────┤
-              │ api.websitemage.com → Main API Gateway     │
-              │ rum.ingest → Handle RUM beacons (global)   │
-              │ uptime.cron → 5-min cron checks (global)   │
-              │ psi.queue  → hourly PSI batch jobs (US-E)  │
-              │ cleanup.daily → purge old logs (US-E)      │
-              └───────────────────────────────────────────┘
-                        │
-                        ▼
-                 Supabase (Postgres + Auth)
-
+┌───────────────────────────────────────────┐
+│ Cloudflare Workers Layer │
+├───────────────────────────────────────────┤
+│ api.websitemage.com → Main API Gateway │
+│ rum.ingest → Handle RUM beacons (global) │
+│ uptime.cron → 5-min cron checks (global) │
+│ psi.queue → hourly PSI batch jobs (US-E) │
+│ cleanup.daily → purge old logs (US-E) │
+└───────────────────────────────────────────┘
+│
+▼
+Supabase (Postgres + Auth)
 
 Region affinity: US-East for DB-bound Workers.
 
@@ -128,35 +127,33 @@ Global: for uptime pings & RUM ingestion.
 
 2.6 Security Headers & CSP
 Content-Security-Policy:
-  default-src 'self';
-  script-src 'self' https://*.supabase.co https://js.stripe.com https://*.sentry.io https://*.cloudflare.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' data: https://*.supabase.co https://*.cloudflare.com;
-  connect-src 'self' https://api.websitemage.com https://*.supabase.co https://sentry.io https://stripe.com;
-  frame-src https://js.stripe.com;
-  object-src 'none';
-  base-uri 'self';
-  form-action 'self';
-  upgrade-insecure-requests;
+default-src 'self';
+script-src 'self' https://_.supabase.co https://js.stripe.com https://_.sentry.io https://_.cloudflare.com;
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+img-src 'self' data: https://_.supabase.co https://_.cloudflare.com;
+connect-src 'self' https://api.websitemage.com https://_.supabase.co https://sentry.io https://stripe.com;
+frame-src https://js.stripe.com;
+object-src 'none';
+base-uri 'self';
+form-action 'self';
+upgrade-insecure-requests;
 
 Strict-Transport-Security:
-  max-age=63072000; includeSubDomains; preload
-
+max-age=63072000; includeSubDomains; preload
 
 Additional headers: X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin.
 
 2.7 Backups & Recovery Matrix
-Component	Method	Frequency	Retention	RPO	RTO
-Supabase DB	Built-in snapshot	Daily	7 → 30 days	≤ 24 h	≤ 2 h
-Storage (PSI screenshots)	Worker → S3 export	Daily	30 days	≤ 24 h	≤ 4 h
-KV / Config	JSON dump → Supabase	Weekly	30 days	≤ 48 h	≤ 4 h
+Component Method Frequency Retention RPO RTO
+Supabase DB Built-in snapshot Daily 7 → 30 days ≤ 24 h ≤ 2 h
+Storage (PSI screenshots) Worker → S3 export Daily 30 days ≤ 24 h ≤ 4 h
+KV / Config JSON dump → Supabase Weekly 30 days ≤ 48 h ≤ 4 h
 2.8 Observability Pipeline
-   [Nuxt]──┐
-            │errors→ Sentry (90 d)
-   [Workers]│logs→ Sentry + Cloudflare Logs (30 d)
-            │metrics→ Supabase app_logs table
-   [Supabase]─SQL errors→ internal logs (30 d)
-
+[Nuxt]──┐
+│errors→ Sentry (90 d)
+[Workers]│logs→ Sentry + Cloudflare Logs (30 d)
+│metrics→ Supabase app_logs table
+[Supabase]─SQL errors→ internal logs (30 d)
 
 Alerts sent to Slack #dev-ops when severity ≥ “error”.
 
@@ -180,37 +177,37 @@ The main dashboard (app.websitemage.com) is a Nuxt 4 SSR app built with TypeScri
 The same codebase will serve both agency admin and client-viewer experiences.
 
 ┌──────────────────────────┐
-│   Nuxt 4 Frontend App    │
-│  (SSR + SPA hybrid)      │
-│  ├─ Auth flows (Supabase)│
-│  ├─ Dashboard pages      │
-│  ├─ Settings + Billing   │
-│  ├─ Client View widgets  │
-│  └─ Pinia Store + API SDK│
+│ Nuxt 4 Frontend App │
+│ (SSR + SPA hybrid) │
+│ ├─ Auth flows (Supabase)│
+│ ├─ Dashboard pages │
+│ ├─ Settings + Billing │
+│ ├─ Client View widgets │
+│ └─ Pinia Store + API SDK│
 └──────────┬───────────────┘
-           │HTTPS fetch → Cloudflare Workers
-           ▼
-    api.websitemage.com
+│HTTPS fetch → Cloudflare Workers
+▼
+api.websitemage.com
 
 Key Responsibilities
-Feature	Description
-Auth UI	Login, OAuth (Google/Microsoft/GitHub), session persistence
-Sites Manager	CRUD for monitored sites, keyword validation
-Dashboards	Uptime %, PSI trends, RUM charts, Alerts table
-Reports	Monthly PDF report generation (via Supabase Edge Fn)
-Billing Portal	Stripe Billing Portal iframe + webhook sync
-Theme / Branding	Custom logo + color for Agency tier
-Client View	Read-only widgets (Uptime 30 days, PSI, CWV, Incidents)
+Feature Description
+Auth UI Login, OAuth (Google/Microsoft/GitHub), session persistence
+Sites Manager CRUD for monitored sites, keyword validation
+Dashboards Uptime %, PSI trends, RUM charts, Alerts table
+Reports Monthly PDF report generation (via Supabase Edge Fn)
+Billing Portal Stripe Billing Portal iframe + webhook sync
+Theme / Branding Custom logo + color for Agency tier
+Client View Read-only widgets (Uptime 30 days, PSI, CWV, Incidents)
 Nuxt Structure
 /app
- ├─ composables/     # API SDK, auth, subscriptions
- ├─ components/      # Charts, tables, modals
- ├─ pages/
- │   ├─ dashboard.vue
- │   ├─ sites/[id].vue
- │   └─ settings.vue
- ├─ plugins/         # Sentry, Stripe, Supabase
- └─ stores/          # Pinia modules
+├─ composables/ # API SDK, auth, subscriptions
+├─ components/ # Charts, tables, modals
+├─ pages/
+│ ├─ dashboard.vue
+│ ├─ sites/[id].vue
+│ └─ settings.vue
+├─ plugins/ # Sentry, Stripe, Supabase
+└─ stores/ # Pinia modules
 
 Integration Plugins
 
@@ -226,72 +223,70 @@ nuxt-security – headers/CSP injection
 
 3.2 Backend – Supabase (Postgres + Auth + Storage)
 Logical Schema Overview
-           ┌──────────────────────────────┐
-           │          agencies            │
-           │ id • name • tier • branding  │
-           └────────────┬─────────────────┘
-                        │1-n
-           ┌────────────▼─────────────┐
-           │          sites           │
-           │ id • domain • agency_id  │
-           └────────────┬─────────────┘
-                        │1-n
-   ┌──────────┬─────────┴──────────┬────────────┐
-   ▼          ▼                    ▼            ▼
-uptime_checks psi_results        rum_events   alerts
+┌──────────────────────────────┐
+│ agencies │
+│ id • name • tier • branding │
+└────────────┬─────────────────┘
+│1-n
+┌────────────▼─────────────┐
+│ sites │
+│ id • domain • agency_id │
+└────────────┬─────────────┘
+│1-n
+┌──────────┬─────────┴──────────┬────────────┐
+▼ ▼ ▼ ▼
+uptime_checks psi_results rum_events alerts
 
 Core Tables
-Table	Purpose	Retention
-agencies	Org profile + tier + branding	permanent
-users	Supabase auth users + role mapping	permanent
-sites	Each monitored domain per agency	30-day soft delete
-uptime_checks	Logs each ping result (HTTP status, TTFB, region)	24 months
-psi_results	Stored Lighthouse scores + CWV	24 months
-rum_events	Aggregated real-user metrics	6–12 months
-alerts	Email/SMS sent logs	6 months
-audit_log	Staff actions	12 months
-billing_usage	Email/SMS usage tracking	7 years (Stripe)
+Table Purpose Retention
+agencies Org profile + tier + branding permanent
+users Supabase auth users + role mapping permanent
+sites Each monitored domain per agency 30-day soft delete
+uptime_checks Logs each ping result (HTTP status, TTFB, region) 24 months
+psi_results Stored Lighthouse scores + CWV 24 months
+rum_events Aggregated real-user metrics 6–12 months
+alerts Email/SMS sent logs 6 months
+audit_log Staff actions 12 months
+billing_usage Email/SMS usage tracking 7 years (Stripe)
 Row-Level Security (RLS)
 -- Example RLS for sites table
 CREATE POLICY "Agency isolation"
 ON sites
 FOR SELECT USING (agency_id = auth.uid()::uuid)
 FOR ALL USING (EXISTS(
-  SELECT 1 FROM agency_members
-  WHERE user_id = auth.uid()
-  AND agency_id = sites.agency_id
+SELECT 1 FROM agency_members
+WHERE user_id = auth.uid()
+AND agency_id = sites.agency_id
 ));
-
 
 All queries filter by agency_id. Supabase Service Role used only by Workers.
 
 3.3 Cloudflare Workers – Serverless Layer
 Worker Functions
-Worker	Schedule	Region	Description
-api	on-demand	fixed (US-East)	Main API gateway → Supabase
-uptime	every 5 min	global	Executes HTTP GET checks + validates keyword
-psi	hourly	US-East	Queues PageSpeed runs via PSI API
-cleanup	daily 03:00 UTC	US-East	Purges old data, archives to S3
-rum_ingest	on-demand	global	Collects beacons from rum.js
-webhook_stripe	on-demand	fixed	Handles Stripe events
+Worker Schedule Region Description
+api on-demand fixed (US-East) Main API gateway → Supabase
+uptime every 5 min global Executes HTTP GET checks + validates keyword
+psi hourly US-East Queues PageSpeed runs via PSI API
+cleanup daily 03:00 UTC US-East Purges old data, archives to S3
+rum_ingest on-demand global Collects beacons from rum.js
+webhook_stripe on-demand fixed Handles Stripe events
 Data Flow
 [cron trigger]──▶[Worker:uptime]──▶Supabase
 [user click scan]──▶[Worker:psi]──▶Google PSI API──▶Supabase
 [user browser rum.js]──▶[Worker:rum_ingest]──▶Supabase
 
 Worker Storage Bindings
-Binding	Purpose
-UPTIME_KV	track rate limit counters
-RUM_KV	temporary buffer for RUM beacons
-CONFIG	cached site settings
-SENTRY_DSN	error logging
-SUPABASE_URL/KEY	DB connection (secrets)
+Binding Purpose
+UPTIME_KV track rate limit counters
+RUM_KV temporary buffer for RUM beacons
+CONFIG cached site settings
+SENTRY_DSN error logging
+SUPABASE_URL/KEY DB connection (secrets)
 3.4 Notifications – AWS SES + Twilio
 [Worker → Alert trigger]
-       │
-       ├─Email→AWS SES (SMTP API)
-       └─SMS →Twilio API
-
+│
+├─Email→AWS SES (SMTP API)
+└─SMS →Twilio API
 
 Email caps: Base 100 / Pro 500 / Agency 5000 per month
 
@@ -303,19 +298,19 @@ Quiet hours optional per recipient (timezone-aware)
 
 3.5 Billing – Stripe Subscriptions + Usage Records
 [Nuxt App]──▶Stripe Checkout
-      │
-      ▼
+│
+▼
 [Stripe Webhook Worker]──▶Supabase billing_usage
-      │
-      └▶Pause/Resume checks based on status
+│
+└▶Pause/Resume checks based on status
 
 Product Catalog (Stripe)
-Product	Price	Quantity Rule
-Base	$1 /site/mo	1 site increments
-Pro	$5 /site/mo	1 site increments
-Agency	$25 / 25-site bundle	bundle increments
-Email Overage	$0.01 / email	metered usage
-SMS Alerts	$0.016 / SMS	metered usage
+Product Price Quantity Rule
+Base $1 /site/mo 1 site increments
+Pro $5 /site/mo 1 site increments
+Agency $25 / 25-site bundle bundle increments
+Email Overage $0.01 / email metered usage
+SMS Alerts $0.016 / SMS metered usage
 
 Stripe Tax enabled.
 Dunning window = 7 days with “Smart Retries”.
@@ -323,29 +318,28 @@ Unpaid → lock dashboard (read-only) + pause Workers.
 
 3.6 Security & Privacy Pipeline
 ┌────────────────────────────┐
-│  User Browser              │
-│  (RUM script, Dashboard)   │
+│ User Browser │
+│ (RUM script, Dashboard) │
 └──────────┬─────────────────┘
-           │HTTPS
-           ▼
+│HTTPS
+▼
 ┌────────────────────────────┐
-│  Cloudflare Workers WAF    │
-│  • CSP enforcement         │
-│  • Rate-limits             │
-│  • Bot filtering           │
+│ Cloudflare Workers WAF │
+│ • CSP enforcement │
+│ • Rate-limits │
+│ • Bot filtering │
 └──────────┬─────────────────┘
-           ▼
+▼
 ┌────────────────────────────┐
-│  Supabase (Postgres RLS)   │
-│  • JWT Auth check          │
-│  • RLS per agency          │
+│ Supabase (Postgres RLS) │
+│ • JWT Auth check │
+│ • RLS per agency │
 └──────────┬─────────────────┘
-           ▼
+▼
 ┌────────────────────────────┐
-│  Stripe / SES / Twilio     │
-│  • Scoped API keys (Workers)│
+│ Stripe / SES / Twilio │
+│ • Scoped API keys (Workers)│
 └────────────────────────────┘
-
 
 No PII in RUM data
 
@@ -357,111 +351,110 @@ CSP + HSTS headers globally applied
 
 3.7 Data Flow – Example Uptime Check
 [5-min cron]──▶[uptime Worker]
-    │ iterate active sites
-    ▼
+│ iterate active sites
+▼
 HTTP GET (domain)
-    │ success/failure
-    ▼
+│ success/failure
+▼
 Supabase → insert uptime_checks
-    │
-    ├─if fail ×3 → send alert
-    └─if recovered → send recovery alert
+│
+├─if fail ×3 → send alert
+└─if recovered → send recovery alert
 
 3.8 Data Flow – RUM Collection
 Browser (page load)
-   │
-   ├─Collect: LCP CLS INP TTFB FCP UA-CH Viewport Region
-   └─POST → cdn.websitemage.com/rum.js → Worker
-            │validate + sample 25–100%
-            ▼
-            Supabase INSERT → rum_events
-
+│
+├─Collect: LCP CLS INP TTFB FCP UA-CH Viewport Region
+└─POST → cdn.websitemage.com/rum.js → Worker
+│validate + sample 25–100%
+▼
+Supabase INSERT → rum_events
 
 Sampling rates: Base 25%, Pro 50%, Agency 100%
 
 Event caps: 1k / 10k / 50k shared
 
 3.9 Error Tracking & Logging Detail
-Source	Tool	Retention	Alert Flow
-Nuxt frontend	Sentry	90 days	Slack #dev-ops
-Workers	Sentry + Cloudflare logs	30 days	Slack #dev-ops
-Supabase	Built-in logs	30 days	Console review
-App logs (table)	Supabase	60 days	Aggregated metrics UI later
+Source Tool Retention Alert Flow
+Nuxt frontend Sentry 90 days Slack #dev-ops
+Workers Sentry + Cloudflare logs 30 days Slack #dev-ops
+Supabase Built-in logs 30 days Console review
+App logs (table) Supabase 60 days Aggregated metrics UI later
 3.10 Testing Stack
-Type	Tool	Scope
-Unit	Vitest	SDK functions, RUM parser, PSI fetch
-E2E	Playwright	Dashboard flows + auth + billing
-Load	k6	RUM ingest endpoint, uptime Worker batch
-Lint	ESLint + Prettier + commitlint	Conventional commits + CI enforcement
+Type Tool Scope
+Unit Vitest SDK functions, RUM parser, PSI fetch
+E2E Playwright Dashboard flows + auth + billing
+Load k6 RUM ingest endpoint, uptime Worker batch
+Lint ESLint + Prettier + commitlint Conventional commits + CI enforcement
 
 CI/CD runs on Netlify + Cloudflare deploy hooks.
 
 3.11 Summary of Subsystems
-Subsystem	Owner	Key Output
-Nuxt Frontend	Web Team	Dashboard UI + Reports
-Cloudflare Workers	DevOps	Cron jobs + API layer
-Supabase Backend	Data Team	DB + Auth + Storage
-Stripe Billing	Finance Ops	Revenue tracking
-SES/Twilio Alerts	Support Ops	Client notifications
-Sentry Monitoring	Engineering	Error visibility
+Subsystem Owner Key Output
+Nuxt Frontend Web Team Dashboard UI + Reports
+Cloudflare Workers DevOps Cron jobs + API layer
+Supabase Backend Data Team DB + Auth + Storage
+Stripe Billing Finance Ops Revenue tracking
+SES/Twilio Alerts Support Ops Client notifications
+Sentry Monitoring Engineering Error visibility
 
 4 Data Model & Schema Design
 
 This section defines the multi-tenant schema, RLS isolation, indexes, retention, quotas, and soft-delete strategy. It is optimized for Supabase Postgres with Row-Level Security.
 
 4.1 Entity Relationship Diagram (ERD)
-                          ┌──────────────────────────┐
-                          │         users*           │  (*Supabase Auth)
-                          │ id (uuid)               │
-                          └─────────────┬────────────┘
-                                        │1..n (membership)
-                           ┌────────────▼─────────────┐
-                           │      agency_members      │
-                           │ user_id (uuid)          │
-                           │ agency_id (uuid)        │
-                           │ role (enum)             │
-                           └────────────┬─────────────┘
-                                        │n..1
-                     ┌──────────────────▼──────────────────┐
-                     │               agencies               │
-                     │ id (uuid)                           │
-                     │ name, tier (enum)                   │
-                     │ branding_json, custom_domain        │
-                     └───────────────┬─────────────────────┘
-                                     │1..n
-               ┌─────────────────────▼─────────────────────┐
-               │                  sites                    │
-               │ id (uuid)                                 │
-               │ agency_id (uuid)                          │
-               │ domain, expected_keyword                  │
-               │ settings_json, deleted_at                 │
-               └─────────┬──────────┬─────────┬────────────┘
-                         │1..n      │1..n     │1..n
-           ┌─────────────▼───┐  ┌───▼────────┐ ┌────────────▼───────────┐
-           │   uptime_checks │  │ psi_results│ │        rum_events       │
-           │ (log entries)   │  │ (per scan) │ │ (raw RUM beacons)      │
-           └──────────┬──────┘  └────┬───────┘ └──────────┬─────────────┘
-                      │1..n          │1..n                │n..1
-           ┌──────────▼─────────┐ ┌──▼─────────┐  ┌───────▼───────────┐
-           │ uptime_incidents   │ │ psi_latest │  │ rum_daily_agg     │
-           │ (open/closed)      │ │ (mat.view) │  │ (rollups)         │
-           └──────────┬─────────┘ └────────────┘  └─────────┬─────────┘
-                      │1..n                               1..n│
-            ┌─────────▼──────────┐              ┌────────────▼─────────┐
-            │       alerts_sent   │              │  usage_counters      │
-            │ (email/sms logs)    │              │ (per month quotas)   │
-            └──────────┬──────────┘              └────────────┬─────────┘
-                       │1..n                                 1..n│
-             ┌─────────▼───────────┐               ┌───────────▼──────────┐
-             │ client_site_access  │               │  audit_log            │
-             │ (viewer↔site map)   │               │ (staff/system acts)   │
-             └─────────────────────┘               └───────────────────────┘
+┌──────────────────────────┐
+│ users* │ (*Supabase Auth)
+│ id (uuid) │
+└─────────────┬────────────┘
+│1..n (membership)
+┌────────────▼─────────────┐
+│ agency_members │
+│ user_id (uuid) │
+│ agency_id (uuid) │
+│ role (enum) │
+└────────────┬─────────────┘
+│n..1
+┌──────────────────▼──────────────────┐
+│ agencies │
+│ id (uuid) │
+│ name, tier (enum) │
+│ branding_json, custom_domain │
+└───────────────┬─────────────────────┘
+│1..n
+┌─────────────────────▼─────────────────────┐
+│ sites │
+│ id (uuid) │
+│ agency_id (uuid) │
+│ domain, expected_keyword │
+│ settings_json, deleted_at │
+└─────────┬──────────┬─────────┬────────────┘
+│1..n │1..n │1..n
+┌─────────────▼───┐ ┌───▼────────┐ ┌────────────▼───────────┐
+│ uptime_checks │ │ psi_results│ │ rum_events │
+│ (log entries) │ │ (per scan) │ │ (raw RUM beacons) │
+└──────────┬──────┘ └────┬───────┘ └──────────┬─────────────┘
+│1..n │1..n │n..1
+┌──────────▼─────────┐ ┌──▼─────────┐ ┌───────▼───────────┐
+│ uptime_incidents │ │ psi_latest │ │ rum_daily_agg │
+│ (open/closed) │ │ (mat.view) │ │ (rollups) │
+└──────────┬─────────┘ └────────────┘ └─────────┬─────────┘
+│1..n 1..n│
+┌─────────▼──────────┐ ┌────────────▼─────────┐
+│ alerts_sent │ │ usage_counters │
+│ (email/sms logs) │ │ (per month quotas) │
+└──────────┬──────────┘ └────────────┬─────────┘
+│1..n 1..n│
+┌─────────▼───────────┐ ┌───────────▼──────────┐
+│ client_site_access │ │ audit_log │
+│ (viewer↔site map) │ │ (staff/system acts) │
+└─────────────────────┘ └───────────────────────┘
 
 4.2 Table Specifications (DDL Sketches)
 
 Conventions
 
-*_id are UUIDs.
+\*\_id are UUIDs.
 
 created_at/updated_at default now().
 
@@ -473,13 +466,13 @@ All tables include agency_id for RLS scoping unless noted.
 create type agency_tier as enum ('base','pro','agency','enterprise_future');
 
 create table public.agencies (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  tier agency_tier not null default 'base',
-  branding_json jsonb not null default '{}', -- logo/colors
-  custom_domain text,                         -- Agency tier client portal
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+id uuid primary key default gen_random_uuid(),
+name text not null,
+tier agency_tier not null default 'base',
+branding_json jsonb not null default '{}', -- logo/colors
+custom_domain text, -- Agency tier client portal
+created_at timestamptz not null default now(),
+updated_at timestamptz not null default now()
 );
 create index on agencies (tier);
 
@@ -487,131 +480,129 @@ create index on agencies (tier);
 create type member_role as enum ('admin','staff','client');
 
 create table public.agency_members (
-  agency_id uuid not null references agencies(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  role member_role not null,
-  created_at timestamptz not null default now(),
-  primary key (agency_id, user_id)
+agency_id uuid not null references agencies(id) on delete cascade,
+user_id uuid not null references auth.users(id) on delete cascade,
+role member_role not null,
+created_at timestamptz not null default now(),
+primary key (agency_id, user_id)
 );
 create index on agency_members (user_id);
 
 4.2.3 sites
 create table public.sites (
-  id uuid primary key default gen_random_uuid(),
-  agency_id uuid not null references agencies(id) on delete cascade,
-  domain text not null,
-  expected_keyword text, -- optional uptime content check
-  settings_json jsonb not null default '{}', -- frequency, regions, quiet hours
-  deleted_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (agency_id, domain)  -- dedupe inside an agency
+id uuid primary key default gen_random_uuid(),
+agency_id uuid not null references agencies(id) on delete cascade,
+domain text not null,
+expected_keyword text, -- optional uptime content check
+settings_json jsonb not null default '{}', -- frequency, regions, quiet hours
+deleted_at timestamptz,
+created_at timestamptz not null default now(),
+updated_at timestamptz not null default now(),
+unique (agency_id, domain) -- dedupe inside an agency
 );
 create index on sites (agency_id);
 create index on sites (deleted_at);
 
 4.2.4 client_site_access (client viewers → subset of sites within same agency)
 create table public.client_site_access (
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (site_id, user_id),
-  constraint csa_same_agency
-    check (agency_id = (select agency_id from sites s where s.id = site_id))
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+user_id uuid not null references auth.users(id) on delete cascade,
+created_at timestamptz not null default now(),
+primary key (site_id, user_id),
+constraint csa_same_agency
+check (agency_id = (select agency_id from sites s where s.id = site_id))
 );
 create index on client_site_access (user_id);
 
 4.2.5 uptime_checks & uptime_incidents
 create table public.uptime_checks (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  checked_at timestamptz not null default now(),
-  region text not null,                  -- e.g., 'us-east','eu-west','ap-sg'
-  http_status int,
-  ttfb_ms int,                           -- from Worker timing
-  ok boolean not null,                   -- 200..299 + (keyword if configured)
-  err text,                              -- fetch error / reason
-  created_at timestamptz not null default now()
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+checked_at timestamptz not null default now(),
+region text not null, -- e.g., 'us-east','eu-west','ap-sg'
+http_status int,
+ttfb_ms int, -- from Worker timing
+ok boolean not null, -- 200..299 + (keyword if configured)
+err text, -- fetch error / reason
+created_at timestamptz not null default now()
 );
 create index on uptime_checks (site_id, checked_at desc);
 create index on uptime_checks (agency_id, checked_at desc);
 
 create table public.uptime_incidents (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  opened_at timestamptz not null,
-  closed_at timestamptz,
-  reason text,                       -- aggregated reason (timeout, 5xx, keyword)
-  alert_sent_count int not null default 0
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+opened_at timestamptz not null,
+closed_at timestamptz,
+reason text, -- aggregated reason (timeout, 5xx, keyword)
+alert_sent_count int not null default 0
 );
 create index on uptime_incidents (site_id, opened_at desc);
 
 4.2.6 psi_results (+ materialized view psi_latest)
 create table public.psi_results (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  scanned_at timestamptz not null default now(),
-  device text not null check (device in ('mobile','desktop')),
-  lighthouse_version text,
-  performance_score int,                -- 0..100
-  lcp_ms int, cls numeric(6,3), inp_ms int, fid_ms int, fcp_ms int,
-  opportunities jsonb,                  -- selected suggestions
-  screenshot_url text
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+scanned_at timestamptz not null default now(),
+device text not null check (device in ('mobile','desktop')),
+lighthouse_version text,
+performance_score int, -- 0..100
+lcp_ms int, cls numeric(6,3), inp_ms int, fid_ms int, fcp_ms int,
+opportunities jsonb, -- selected suggestions
+screenshot_url text
 );
 create index on psi_results (site_id, scanned_at desc);
 create index on psi_results (agency_id, scanned_at desc);
 
 -- Latest per site/device (fast dashboard reads)
 create materialized view public.psi_latest as
-  select distinct on (site_id, device)
-    site_id, device, scanned_at, performance_score,
-    lcp_ms, cls, inp_ms, fid_ms, fcp_ms, lighthouse_version
-  from psi_results
-  order by site_id, device, scanned_at desc;
+select distinct on (site_id, device)
+site_id, device, scanned_at, performance_score,
+lcp_ms, cls, inp_ms, fid_ms, fcp_ms, lighthouse_version
+from psi_results
+order by site_id, device, scanned_at desc;
 
 4.2.7 rum_events (raw) & rollups
 
 Note: High-volume table. Keep narrow columns; roll up daily.
 
 create table public.rum_events (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  ts timestamptz not null default now(),
-  nav_type text, -- navigate, reload, back-forward, prerender
-  device text,   -- 'mobile'|'desktop' (derived from viewport/UA-CH)
-  ua text,       -- simplified UA-CH string (no PII)
-  viewport_w int, viewport_h int,
-  country char(2),
-  lcp_ms int, cls numeric(6,3), inp_ms int, fid_ms int, ttfb_ms int, fcp_ms int
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+ts timestamptz not null default now(),
+nav_type text, -- navigate, reload, back-forward, prerender
+device text, -- 'mobile'|'desktop' (derived from viewport/UA-CH)
+ua text, -- simplified UA-CH string (no PII)
+viewport_w int, viewport_h int,
+country char(2),
+lcp_ms int, cls numeric(6,3), inp_ms int, fid_ms int, ttfb_ms int, fcp_ms int
 );
 create index on rum_events (site_id, ts desc);
 create index on rum_events (agency_id, ts desc);
 create index on rum_events (country);
 
-
 Daily aggregation (per site/device/country):
 
 create table public.rum_daily_agg (
-  agency_id uuid not null,
-  site_id uuid not null,
-  day date not null,
-  device text not null,
-  country char(2),
-  samples int not null,
-  p50_lcp_ms int, p75_lcp_ms int, p95_lcp_ms int,
-  p75_cls numeric(6,3),
-  p75_inp_ms int,
-  p50_ttfb_ms int,
-  p50_fcp_ms int,
-  primary key (site_id, day, device, country)
+agency_id uuid not null,
+site_id uuid not null,
+day date not null,
+device text not null,
+country char(2),
+samples int not null,
+p50_lcp_ms int, p75_lcp_ms int, p95_lcp_ms int,
+p75_cls numeric(6,3),
+p75_inp_ms int,
+p50_ttfb_ms int,
+p50_fcp_ms int,
+primary key (site_id, day, device, country)
 );
 create index on rum_daily_agg (site_id, day desc);
-
 
 A nightly Worker computes aggregates and purges old rum_events per retention policy.
 
@@ -619,14 +610,14 @@ A nightly Worker computes aggregates and purges old rum_events per retention pol
 create type alert_channel as enum ('email','sms');
 
 create table public.alerts_sent (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid references sites(id) on delete set null,
-  incident_id bigint references uptime_incidents(id) on delete set null,
-  channel alert_channel not null,
-  recipient text not null,
-  sent_at timestamptz not null default now(),
-  meta jsonb not null default '{}' -- SES/Twilio message ids, status
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid references sites(id) on delete set null,
+incident_id bigint references uptime_incidents(id) on delete set null,
+channel alert_channel not null,
+recipient text not null,
+sent_at timestamptz not null default now(),
+meta jsonb not null default '{}' -- SES/Twilio message ids, status
 );
 create index on alerts_sent (agency_id, sent_at desc);
 create index on alerts_sent (site_id, sent_at desc);
@@ -636,18 +627,17 @@ create index on alerts_sent (site_id, sent_at desc);
 create type usage_metric as enum ('email','sms','rum');
 
 create table public.usage_counters (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid,                         -- null for pooled (Agency RUM pool)
-  metric usage_metric not null,
-  month date not null,                  -- yyyy-mm-01
-  cap int not null,                     -- plan-derived limit
-  used int not null default 0,
-  updated_at timestamptz not null default now(),
-  unique (agency_id, coalesce(site_id, '00000000-0000-0000-0000-000000000000'::uuid), metric, month)
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid, -- null for pooled (Agency RUM pool)
+metric usage_metric not null,
+month date not null, -- yyyy-mm-01
+cap int not null, -- plan-derived limit
+used int not null default 0,
+updated_at timestamptz not null default now(),
+unique (agency_id, coalesce(site_id, '00000000-0000-0000-0000-000000000000'::uuid), metric, month)
 );
 create index on usage_counters (agency_id, metric, month);
-
 
 Enforcement
 
@@ -657,26 +647,26 @@ DB triggers increment used on alerts_sent insert and on accepted RUM beacon.
 
 4.2.10 audit_log
 create table public.audit_log (
-  id bigserial primary key,
-  agency_id uuid not null,
-  user_id uuid references auth.users(id),
-  site_id uuid references sites(id),
-  action text not null,           -- e.g., 'site.create','check.delete','billing.update'
-  details jsonb not null default '{}',
-  created_at timestamptz not null default now()
+id bigserial primary key,
+agency_id uuid not null,
+user_id uuid references auth.users(id),
+site_id uuid references sites(id),
+action text not null, -- e.g., 'site.create','check.delete','billing.update'
+details jsonb not null default '{}',
+created_at timestamptz not null default now()
 );
 create index on audit_log (agency_id, created_at desc);
 create index on audit_log (site_id, created_at desc);
 
 4.2.11 (Optional) rum_bot_events
 create table public.rum_bot_events (
-  id bigserial primary key,
-  agency_id uuid not null,
-  site_id uuid not null references sites(id) on delete cascade,
-  ts timestamptz not null default now(),
-  ua text,
-  country char(2),
-  reason text -- e.g., known bot UA, headless, automation flags
+id bigserial primary key,
+agency_id uuid not null,
+site_id uuid not null references sites(id) on delete cascade,
+ts timestamptz not null default now(),
+ua text,
+country char(2),
+reason text -- e.g., known bot UA, headless, automation flags
 );
 create index on rum_bot_events (site_id, ts desc);
 
@@ -689,11 +679,13 @@ Helper view for membership (fast checks):
 -- Optional: a function to check membership
 create or replace function is_member_of(ag_id uuid) returns boolean
 language sql stable as $$
-  select exists (
-    select 1 from agency_members
-    where agency_id = ag_id and user_id = auth.uid()
-  );
-$$;
+select exists (
+select 1 from agency_members
+where agency_id = ag_id and user_id = auth.uid()
+);
+
+$$
+;
 
 
 Example: sites
@@ -706,7 +698,7 @@ for select using (is_member_of(agency_id));
 create policy sites_modify on sites
 for all using (
   is_member_of(agency_id) and
-  exists (select 1 from agency_members m 
+  exists (select 1 from agency_members m
           where m.agency_id = agency_id and m.user_id = auth.uid() and m.role in ('admin','staff'))
 );
 
@@ -715,7 +707,7 @@ Client site scoping (read-only):
 
 create policy sites_client_select on sites
 for select using (
-  exists (select 1 from client_site_access csa 
+  exists (select 1 from client_site_access csa
           where csa.site_id = sites.id and csa.user_id = auth.uid())
 );
 
@@ -749,12 +741,16 @@ Partitioning (future): Partition rum_events by month if volume grows.
 Refresh trigger for psi_latest:
 
 create or replace function refresh_psi_latest()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql as
+$$
+
 begin
-  refresh materialized view concurrently public.psi_latest;
-  return null;
+refresh materialized view concurrently public.psi_latest;
+return null;
 end;
-$$;
+
+$$
+;
 create trigger trg_refresh_psi_latest
 after insert on psi_results
 for each statement execute function refresh_psi_latest();
@@ -765,17 +761,21 @@ Counters on insert (emails / sms / rum):
 
 -- Example for alerts_sent (email/sms)
 create or replace function inc_usage_counter()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql as
+$$
+
 declare m usage_metric;
 begin
-  m := case when new.channel = 'email' then 'email'::usage_metric else 'sms'::usage_metric end;
-  insert into usage_counters (agency_id, site_id, metric, month, cap, used)
-  values (new.agency_id, new.site_id, m, date_trunc('month', now())::date, 0, 1)
-  on conflict (agency_id, coalesce(site_id,'00000000-0000-0000-0000-000000000000'::uuid), metric, month)
-  do update set used = usage_counters.used + 1, updated_at = now();
-  return new;
+m := case when new.channel = 'email' then 'email'::usage_metric else 'sms'::usage_metric end;
+insert into usage_counters (agency_id, site_id, metric, month, cap, used)
+values (new.agency_id, new.site_id, m, date_trunc('month', now())::date, 0, 1)
+on conflict (agency_id, coalesce(site_id,'00000000-0000-0000-0000-000000000000'::uuid), metric, month)
+do update set used = usage_counters.used + 1, updated_at = now();
+return new;
 end;
-$$;
+
+$$
+;
 create trigger trg_inc_usage_alerts
 after insert on alerts_sent
 for each row execute function inc_usage_counter();
@@ -1691,3 +1691,4 @@ Feature Specs & Acceptance	✅ Complete
 Infrastructure & Ops Guide	✅ Complete
 BMAD Artifacts (you’re reading)	✅ Complete
 Next Step: Cursor Integration	Pending
+$$

@@ -53,6 +53,7 @@ This epic delivers agency-tier capabilities:
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.invitations (
   id BIGSERIAL PRIMARY KEY,
@@ -84,6 +85,7 @@ CREATE INDEX idx_members_user ON agency_members(user_id);
 ```
 
 **Invitation Component:**
+
 ```vue
 <template>
   <div class="team-members">
@@ -106,22 +108,18 @@ CREATE INDEX idx_members_user ON agency_members(user_id);
             <td>{{ formatDate(member.joined_at) }}</td>
             <td>
               <button @click="changeRole(member)" v-if="canEdit">Change Role</button>
-              <button @click="removeMember(member)" v-if="canEdit" class="text-red-600">Remove</button>
+              <button @click="removeMember(member)" v-if="canEdit" class="text-red-600">
+                Remove
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    
-    <button @click="showInviteModal = true" v-if="canInvite">
-      Invite Member
-    </button>
-    
-    <InviteModal 
-      v-if="showInviteModal"
-      @close="showInviteModal = false"
-      @invite="handleInvite"
-    />
+
+    <button @click="showInviteModal = true" v-if="canInvite">Invite Member</button>
+
+    <InviteModal v-if="showInviteModal" @close="showInviteModal = false" @invite="handleInvite" />
   </div>
 </template>
 
@@ -131,7 +129,7 @@ async function handleInvite(data: { email: string, role: string, message?: strin
     method: 'POST',
     body: data
   })
-  
+
   if (response.success) {
     // Show success message
     await refreshMembers()
@@ -143,71 +141,69 @@ async function removeMember(member) {
   if (!confirm(`Remove ${member.user.name} from the team? They will lose access immediately.`)) {
     return
   }
-  
+
   await $fetch(`/api/team/members/${member.id}`, {
     method: 'DELETE'
   })
-  
+
   await refreshMembers()
 }
 </script>
 ```
 
 **API Endpoint:**
+
 ```typescript
 // packages/workers/api/src/routes/team.ts
-import { Hono } from 'hono'
-import crypto from 'crypto'
+import { Hono } from 'hono';
+import crypto from 'crypto';
 
-const team = new Hono()
+const team = new Hono();
 
 team.post('/invite', async (c) => {
-  const { email, role, message } = await c.req.json()
-  const user = c.get('user')
-  
+  const { email, role, message } = await c.req.json();
+  const user = c.get('user');
+
   // Check if user is admin
-  const { data: member } = await c.env.SUPABASE
-    .from('agency_members')
+  const { data: member } = await c.env.SUPABASE.from('agency_members')
     .select('role')
     .eq('agency_id', user.agency_id)
     .eq('user_id', user.id)
-    .single()
-  
+    .single();
+
   if (member?.role !== 'admin') {
-    return c.json({ error: 'Unauthorized' }, 403)
+    return c.json({ error: 'Unauthorized' }, 403);
   }
-  
+
   // Generate token
-  const token = crypto.randomBytes(32).toString('hex')
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 7)
-  
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
   // Create invitation
-  await c.env.SUPABASE
-    .from('invitations')
-    .insert({
-      agency_id: user.agency_id,
-      email,
-      role,
-      token,
-      invited_by: user.id,
-      message,
-      expires_at: expiresAt.toISOString()
-    })
-  
+  await c.env.SUPABASE.from('invitations').insert({
+    agency_id: user.agency_id,
+    email,
+    role,
+    token,
+    invited_by: user.id,
+    message,
+    expires_at: expiresAt.toISOString(),
+  });
+
   // Send invitation email
   await sendInvitationEmail(c.env, {
     to: email,
     inviter: user.name,
     role,
     message,
-    link: `https://app.websitemage.com/accept-invite?token=${token}`
-  })
-  
-  return c.json({ success: true })
-})
+    link: `https://app.websitemage.com/accept-invite?token=${token}`,
+  });
 
-export default team
+  return c.json({ success: true });
+});
+
+export default team;
 ```
 
 ---
@@ -234,6 +230,7 @@ export default team
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.client_site_access (
   id BIGSERIAL PRIMARY KEY,
@@ -249,6 +246,7 @@ CREATE INDEX idx_client_access_site ON client_site_access(site_id);
 ```
 
 **RLS Policy:**
+
 ```sql
 -- Sites table RLS for client access
 CREATE POLICY "Clients can view assigned sites"
@@ -273,14 +271,15 @@ USING (
 ```
 
 **Site Access Component:**
+
 ```vue
 <template>
   <div class="client-site-access">
     <h3>Site Access for {{ member.user.name }}</h3>
-    
+
     <div class="site-list">
       <div v-for="site in allSites" :key="site.id" class="site-item">
-        <input 
+        <input
           type="checkbox"
           :checked="hasSiteAccess(site.id)"
           @change="toggleSiteAccess(site.id, $event.target.checked)"
@@ -306,7 +305,7 @@ async function toggleSiteAccess(siteId: string, granted: boolean) {
       method: 'DELETE'
     })
   }
-  
+
   await refreshAccess()
 }
 </script>
@@ -338,44 +337,31 @@ async function toggleSiteAccess(siteId: string, granted: boolean) {
 #### Technical Notes
 
 **Branding Settings Component:**
+
 ```vue
 <template>
   <div class="branding-settings">
     <h2>White-Label Branding</h2>
-    
+
     <div class="branding-form">
       <div class="logo-upload">
         <label>Agency Logo</label>
-        <input 
-          type="file"
-          accept="image/png,image/svg+xml"
-          @change="handleLogoUpload"
-        />
+        <input type="file" accept="image/png,image/svg+xml" @change="handleLogoUpload" />
         <img v-if="currentLogo" :src="currentLogo" alt="Current logo" class="logo-preview" />
       </div>
-      
+
       <div class="color-picker">
         <label>Primary Color</label>
-        <input 
-          type="color"
-          v-model="primaryColor"
-          @change="updateColor"
-        />
+        <input type="color" v-model="primaryColor" @change="updateColor" />
       </div>
-      
+
       <div class="custom-domain">
         <label>Client Portal Domain</label>
-        <input 
-          type="text"
-          v-model="customDomain"
-          placeholder="monitoring.myagency.com"
-        />
-        <p class="help-text">
-          Configure CNAME: {{ customDomain }} → client.websitemage.com
-        </p>
+        <input type="text" v-model="customDomain" placeholder="monitoring.myagency.com" />
+        <p class="help-text">Configure CNAME: {{ customDomain }} → client.websitemage.com</p>
         <button @click="verifyDomain">Verify DNS Setup</button>
       </div>
-      
+
       <div class="preview-panel">
         <h3>Preview</h3>
         <div class="preview-dashboard" :style="{ '--primary-color': primaryColor }">
@@ -386,7 +372,7 @@ async function toggleSiteAccess(siteId: string, granted: boolean) {
           <button class="preview-btn">Sample Button</button>
         </div>
       </div>
-      
+
       <button @click="saveBranding" class="btn-primary">Save Branding</button>
     </div>
   </div>
@@ -399,18 +385,18 @@ const customDomain = ref('')
 
 async function handleLogoUpload(event: Event) {
   const file = event.target.files[0]
-  
+
   if (file.size > 500 * 1024) {
     alert('Logo must be under 500KB')
     return
   }
-  
+
   const { data, error } = await supabase.storage
     .from('agency-logos')
     .upload(`${agency.value.id}/logo.${file.name.split('.').pop()}`, file, {
       upsert: true
     })
-  
+
   if (!error) {
     currentLogo.value = supabase.storage
       .from('agency-logos')
@@ -434,7 +420,7 @@ async function verifyDomain() {
     method: 'POST',
     body: { domain: customDomain.value }
   })
-  
+
   if (response.verified) {
     alert('Domain verified successfully!')
   } else {
@@ -445,28 +431,29 @@ async function verifyDomain() {
 ```
 
 **DNS Verification:**
+
 ```typescript
 // packages/workers/api/src/routes/agencies.ts
 app.post('/verify-domain', async (c) => {
-  const { domain } = await c.req.json()
-  
+  const { domain } = await c.req.json();
+
   try {
     // Use DNS over HTTPS to check CNAME
     const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=CNAME`, {
-      headers: { 'accept': 'application/dns-json' }
-    })
-    
-    const data = await response.json()
-    
-    if (data.Answer && data.Answer.some(a => a.data === 'client.websitemage.com.')) {
-      return c.json({ verified: true })
+      headers: { accept: 'application/dns-json' },
+    });
+
+    const data = await response.json();
+
+    if (data.Answer && data.Answer.some((a) => a.data === 'client.websitemage.com.')) {
+      return c.json({ verified: true });
     }
-    
-    return c.json({ verified: false, error: 'CNAME not configured correctly' })
+
+    return c.json({ verified: false, error: 'CNAME not configured correctly' });
   } catch (error) {
-    return c.json({ verified: false, error: error.message })
+    return c.json({ verified: false, error: error.message });
   }
-})
+});
 ```
 
 ---
@@ -495,6 +482,7 @@ app.post('/verify-domain', async (c) => {
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.reports (
   id BIGSERIAL PRIMARY KEY,
@@ -511,124 +499,118 @@ CREATE INDEX idx_reports_agency ON reports(agency_id, month DESC);
 ```
 
 **Report Generation Worker:**
+
 ```typescript
 // packages/workers/cron/src/monthly-reports.ts
 export async function generateMonthlyReports(env: Env) {
-  const lastMonth = new Date()
-  lastMonth.setMonth(lastMonth.getMonth() - 1)
-  const monthStr = lastMonth.toISOString().substring(0, 7)
-  
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  const monthStr = lastMonth.toISOString().substring(0, 7);
+
   // Get all Agency tier sites
-  const { data: sites } = await env.SUPABASE
-    .from('sites')
+  const { data: sites } = await env.SUPABASE.from('sites')
     .select('*, agencies(tier, branding_json)')
     .eq('agencies.tier', 'agency')
-    .is('deleted_at', null)
-  
+    .is('deleted_at', null);
+
   for (const site of sites || []) {
     try {
-      const reportData = await aggregateReportData(env, site.id, monthStr)
-      const pdfUrl = await generatePDF(env, reportData, site.agencies.branding_json)
-      
-      await env.SUPABASE
-        .from('reports')
-        .insert({
-          agency_id: site.agency_id,
-          site_id: site.id,
-          month: `${monthStr}-01`,
-          pdf_url: pdfUrl
-        })
-      
+      const reportData = await aggregateReportData(env, site.id, monthStr);
+      const pdfUrl = await generatePDF(env, reportData, site.agencies.branding_json);
+
+      await env.SUPABASE.from('reports').insert({
+        agency_id: site.agency_id,
+        site_id: site.id,
+        month: `${monthStr}-01`,
+        pdf_url: pdfUrl,
+      });
+
       // Send notification email
-      await sendReportEmail(env, site, pdfUrl)
-      
-      console.log(`Generated report for ${site.domain}`)
+      await sendReportEmail(env, site, pdfUrl);
+
+      console.log(`Generated report for ${site.domain}`);
     } catch (error) {
-      console.error(`Failed to generate report for ${site.domain}:`, error)
+      console.error(`Failed to generate report for ${site.domain}:`, error);
     }
   }
 }
 
 async function aggregateReportData(env: Env, siteId: string, month: string) {
-  const startDate = `${month}-01`
-  const endDate = new Date(startDate)
-  endDate.setMonth(endDate.getMonth() + 1)
-  
+  const startDate = `${month}-01`;
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 1);
+
   // Uptime stats
-  const { data: uptimeChecks } = await env.SUPABASE
-    .from('uptime_checks')
+  const { data: uptimeChecks } = await env.SUPABASE.from('uptime_checks')
     .select('ok')
     .eq('site_id', siteId)
     .gte('checked_at', startDate)
-    .lt('checked_at', endDate.toISOString())
-  
-  const uptimePercent = (uptimeChecks?.filter(c => c.ok).length / uptimeChecks?.length) * 100
-  
+    .lt('checked_at', endDate.toISOString());
+
+  const uptimePercent = (uptimeChecks?.filter((c) => c.ok).length / uptimeChecks?.length) * 100;
+
   // Incidents
-  const { data: incidents } = await env.SUPABASE
-    .from('uptime_incidents')
+  const { data: incidents } = await env.SUPABASE.from('uptime_incidents')
     .select('opened_at, closed_at, reason')
     .eq('site_id', siteId)
     .gte('opened_at', startDate)
-    .lt('opened_at', endDate.toISOString())
-  
+    .lt('opened_at', endDate.toISOString());
+
   // PSI trends
-  const { data: psiResults } = await env.SUPABASE
-    .from('psi_results')
+  const { data: psiResults } = await env.SUPABASE.from('psi_results')
     .select('performance_score, lcp_ms, cls, inp_ms, scanned_at')
     .eq('site_id', siteId)
     .gte('scanned_at', startDate)
-    .lt('scanned_at', endDate.toISOString())
-  
+    .lt('scanned_at', endDate.toISOString());
+
   // RUM insights
-  const { data: rumAgg } = await env.SUPABASE
-    .from('rum_daily_agg')
+  const { data: rumAgg } = await env.SUPABASE.from('rum_daily_agg')
     .select('lcp_p75, cls_p75, inp_p75, device_type, event_count')
     .eq('site_id', siteId)
     .gte('date', startDate)
-    .lt('date', endDate.toISOString())
-  
+    .lt('date', endDate.toISOString());
+
   return {
     uptimePercent,
     incidentCount: incidents?.length || 0,
     mttr: calculateMTTR(incidents),
     psiTrends: psiResults,
-    rumInsights: rumAgg
-  }
+    rumInsights: rumAgg,
+  };
 }
 
 async function generatePDF(env: Env, data: any, branding: any): Promise<string> {
   // Use Puppeteer or external service like DocRaptor
   // For MVP, could use simple HTML to PDF conversion
-  
-  const html = renderReportHTML(data, branding)
-  
+
+  const html = renderReportHTML(data, branding);
+
   // Example using DocRaptor
   const response = await fetch('https://docraptor.com/docs', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       user_credentials: env.DOCRAPTOR_API_KEY,
       doc: {
         document_type: 'pdf',
         document_content: html,
-        name: `report-${Date.now()}.pdf`
-      }
-    })
-  })
-  
-  const pdfBuffer = await response.arrayBuffer()
-  
+        name: `report-${Date.now()}.pdf`,
+      },
+    }),
+  });
+
+  const pdfBuffer = await response.arrayBuffer();
+
   // Upload to Supabase Storage
   const { data: uploadData } = await env.SUPABASE.storage
     .from('reports')
     .upload(`${data.agency_id}/${data.site_id}/${data.month}.pdf`, pdfBuffer, {
-      contentType: 'application/pdf'
-    })
-  
-  return uploadData.publicUrl
+      contentType: 'application/pdf',
+    });
+
+  return uploadData.publicUrl;
 }
 ```
 
@@ -660,132 +642,142 @@ async function generatePDF(env: Env, data: any, branding: any): Promise<string> 
 #### Technical Notes
 
 **Export API:**
+
 ```typescript
 // packages/workers/api/src/routes/export.ts
-import { Hono } from 'hono'
+import { Hono } from 'hono';
 
-const exportRouter = new Hono()
+const exportRouter = new Hono();
 
 exportRouter.get('/', async (c) => {
-  const { site_id, type, range } = c.req.query()
-  const user = c.get('user')
-  
+  const { site_id, type, range } = c.req.query();
+  const user = c.get('user');
+
   // Check rate limit
-  const rateLimitKey = `export:${user.id}:${Math.floor(Date.now() / 3600000)}`
-  const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey)
-  
+  const rateLimitKey = `export:${user.id}:${Math.floor(Date.now() / 3600000)}`;
+  const count = await c.env.RATE_LIMIT_KV.get(rateLimitKey);
+
   if (count && parseInt(count) >= 10) {
-    return c.json({ error: 'Rate limit exceeded' }, 429)
+    return c.json({ error: 'Rate limit exceeded' }, 429);
   }
-  
+
   // Verify site access (RLS handles this)
-  const { data: site } = await c.env.SUPABASE
-    .from('sites')
+  const { data: site } = await c.env.SUPABASE.from('sites')
     .select('domain')
     .eq('id', site_id)
-    .single()
-  
+    .single();
+
   if (!site) {
-    return c.json({ error: 'Site not found' }, 404)
+    return c.json({ error: 'Site not found' }, 404);
   }
-  
+
   // Calculate date range
-  const days = parseInt(range.replace('d', '')) || 30
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - days)
-  
-  let csv = ''
-  
+  const days = parseInt(range.replace('d', '')) || 30;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  let csv = '';
+
   switch (type) {
     case 'uptime':
-      csv = await exportUptimeCSV(c.env, site_id, startDate)
-      break
+      csv = await exportUptimeCSV(c.env, site_id, startDate);
+      break;
     case 'psi':
-      csv = await exportPSICSV(c.env, site_id, startDate)
-      break
+      csv = await exportPSICSV(c.env, site_id, startDate);
+      break;
     case 'rum':
-      csv = await exportRUMCSV(c.env, site_id, startDate)
-      break
+      csv = await exportRUMCSV(c.env, site_id, startDate);
+      break;
     default:
-      return c.json({ error: 'Invalid type' }, 400)
+      return c.json({ error: 'Invalid type' }, 400);
   }
-  
+
   // Increment rate limit
-  await c.env.RATE_LIMIT_KV.put(
-    rateLimitKey,
-    String(parseInt(count || '0') + 1),
-    { expirationTtl: 3600 }
-  )
-  
+  await c.env.RATE_LIMIT_KV.put(rateLimitKey, String(parseInt(count || '0') + 1), {
+    expirationTtl: 3600,
+  });
+
   // Log audit event
   await logAudit(c.env, {
     agency_id: site.agency_id,
     user_id: user.id,
     action: `export.csv.${type}`,
-    target: site_id
-  })
-  
-  const filename = `${type}-export-${new Date().toISOString().substring(0, 10)}.csv`
-  
+    target: site_id,
+  });
+
+  const filename = `${type}-export-${new Date().toISOString().substring(0, 10)}.csv`;
+
   return c.body(csv, 200, {
     'Content-Type': 'text/csv',
-    'Content-Disposition': `attachment; filename="${filename}"`
-  })
-})
+    'Content-Disposition': `attachment; filename="${filename}"`,
+  });
+});
 
 async function exportUptimeCSV(env: Env, siteId: string, startDate: Date): Promise<string> {
-  const { data: checks } = await env.SUPABASE
-    .from('uptime_checks')
+  const { data: checks } = await env.SUPABASE.from('uptime_checks')
     .select('checked_at, region, http_status, ttfb_ms, ok, err')
     .eq('site_id', siteId)
     .gte('checked_at', startDate.toISOString())
-    .order('checked_at', { ascending: false })
-  
-  const rows = checks?.map(c => [
-    c.checked_at,
-    c.region,
-    c.http_status || '',
-    c.ttfb_ms || '',
-    c.ok ? 'Up' : 'Down',
-    c.err || ''
-  ]) || []
-  
-  const csv = [
-    ['Timestamp', 'Region', 'HTTP Status', 'TTFB (ms)', 'Result', 'Error'],
-    ...rows
-  ].map(row => row.join(',')).join('\n')
-  
-  return csv
+    .order('checked_at', { ascending: false });
+
+  const rows =
+    checks?.map((c) => [
+      c.checked_at,
+      c.region,
+      c.http_status || '',
+      c.ttfb_ms || '',
+      c.ok ? 'Up' : 'Down',
+      c.err || '',
+    ]) || [];
+
+  const csv = [['Timestamp', 'Region', 'HTTP Status', 'TTFB (ms)', 'Result', 'Error'], ...rows]
+    .map((row) => row.join(','))
+    .join('\n');
+
+  return csv;
 }
 
 async function exportPSICSV(env: Env, siteId: string, startDate: Date): Promise<string> {
-  const { data: results } = await env.SUPABASE
-    .from('psi_results')
-    .select('scanned_at, device, performance_score, lcp_ms, cls, inp_ms, fcp_ms, lighthouse_version')
+  const { data: results } = await env.SUPABASE.from('psi_results')
+    .select(
+      'scanned_at, device, performance_score, lcp_ms, cls, inp_ms, fcp_ms, lighthouse_version'
+    )
     .eq('site_id', siteId)
     .gte('scanned_at', startDate.toISOString())
-    .order('scanned_at', { ascending: false })
-  
-  const rows = results?.map(r => [
-    r.scanned_at,
-    r.device,
-    r.performance_score,
-    r.lcp_ms,
-    r.cls,
-    r.inp_ms,
-    r.fcp_ms,
-    r.lighthouse_version
-  ]) || []
-  
+    .order('scanned_at', { ascending: false });
+
+  const rows =
+    results?.map((r) => [
+      r.scanned_at,
+      r.device,
+      r.performance_score,
+      r.lcp_ms,
+      r.cls,
+      r.inp_ms,
+      r.fcp_ms,
+      r.lighthouse_version,
+    ]) || [];
+
   const csv = [
-    ['Scanned At', 'Device', 'Performance Score', 'LCP (ms)', 'CLS', 'INP (ms)', 'FCP (ms)', 'Lighthouse Version'],
-    ...rows
-  ].map(row => row.join(',')).join('\n')
-  
-  return csv
+    [
+      'Scanned At',
+      'Device',
+      'Performance Score',
+      'LCP (ms)',
+      'CLS',
+      'INP (ms)',
+      'FCP (ms)',
+      'Lighthouse Version',
+    ],
+    ...rows,
+  ]
+    .map((row) => row.join(','))
+    .join('\n');
+
+  return csv;
 }
 
-export default exportRouter
+export default exportRouter;
 ```
 
 ---
@@ -801,8 +793,8 @@ export default exportRouter
 1. Settings → Audit Log page displays table with columns: Timestamp, User, Action, Target (site/user/billing), Details, IP Address
 2. Table data fetched from `audit_log` table filtered by `agency_id`
 3. Table includes pagination: 50 rows per page
-4. Filters available: Date Range (last 7d/30d/90d/custom), Action Type (dropdown: all | site.* | team.* | billing.* | export.*), User (dropdown: all | specific user)
-5. Action types logged: site.create, site.update, site.delete, team.member.invited, team.member.removed, billing.plan.changed, export.csv.*, branding.updated, alert.config.changed
+4. Filters available: Date Range (last 7d/30d/90d/custom), Action Type (dropdown: all | site._ | team._ | billing._ | export._), User (dropdown: all | specific user)
+5. Action types logged: site.create, site.update, site.delete, team.member.invited, team.member.removed, billing.plan.changed, export.csv.\*, branding.updated, alert.config.changed
 6. Details column shows JSON with relevant info (e.g., old/new values for updates)
 7. Clicking row expands to show full details in formatted JSON viewer
 8. Export audit log button: downloads CSV of filtered results (rate limited: 5 per day)
@@ -813,6 +805,7 @@ export default exportRouter
 #### Technical Notes
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE public.audit_log (
   id BIGSERIAL PRIMARY KEY,
@@ -833,11 +826,12 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
 ```
 
 **Audit Log Component:**
+
 ```vue
 <template>
   <div class="audit-log-viewer">
     <h2>Audit Log</h2>
-    
+
     <div class="filters">
       <select v-model="filters.dateRange">
         <option value="7d">Last 7 days</option>
@@ -845,7 +839,7 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
         <option value="90d">Last 90 days</option>
         <option value="custom">Custom</option>
       </select>
-      
+
       <select v-model="filters.actionType">
         <option value="all">All Actions</option>
         <option value="site">Site Actions</option>
@@ -853,17 +847,17 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
         <option value="billing">Billing Actions</option>
         <option value="export">Export Actions</option>
       </select>
-      
+
       <select v-model="filters.userId">
         <option value="all">All Users</option>
         <option v-for="user in teamMembers" :key="user.id" :value="user.id">
           {{ user.name }}
         </option>
       </select>
-      
+
       <button @click="exportAuditLog">Export CSV</button>
     </div>
-    
+
     <table class="audit-table">
       <thead>
         <tr>
@@ -880,7 +874,9 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
           <tr @click="expandLog(log.id)">
             <td>{{ formatDate(log.created_at) }}</td>
             <td>{{ log.user?.name || 'System' }}</td>
-            <td><code>{{ log.action }}</code></td>
+            <td>
+              <code>{{ log.action }}</code>
+            </td>
             <td>{{ log.target }}</td>
             <td>{{ log.ip_address }}</td>
             <td>
@@ -895,12 +891,8 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
         </template>
       </tbody>
     </table>
-    
-    <Pagination 
-      :page="page"
-      :total="totalPages"
-      @change="page = $event"
-    />
+
+    <Pagination :page="page" :total="totalPages" @change="page = $event" />
   </div>
 </template>
 ```
@@ -930,6 +922,7 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
 #### Technical Notes
 
 **Client Dashboard Component:**
+
 ```vue
 <template>
   <div class="client-dashboard" :style="brandingStyles">
@@ -937,37 +930,37 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
       <img v-if="branding.logo_url" :src="branding.logo_url" alt="Logo" />
       <span v-else>{{ agency.name }}</span>
     </header>
-    
+
     <div class="site-grid">
       <div v-for="site in grantedSites" :key="site.id" class="site-card">
         <h3>{{ site.domain }}</h3>
-        
+
         <div class="site-metrics">
           <div class="metric">
             <span class="label">Uptime (30d)</span>
             <span class="value">{{ site.uptime_percent }}%</span>
           </div>
-          
+
           <div class="metric">
             <span class="label">PSI Score</span>
             <span class="value">{{ site.latest_psi_score }}</span>
           </div>
-          
+
           <div v-if="site.last_incident" class="incident-badge">
             Last incident: {{ formatDate(site.last_incident.opened_at) }}
           </div>
         </div>
-        
+
         <NuxtLink :to="`/client-dashboard/sites/${site.id}`" class="btn-view">
           View Details
         </NuxtLink>
       </div>
     </div>
-    
+
     <div v-if="grantedSites.length === 0" class="empty-state">
       <p>No sites assigned. Contact your agency admin.</p>
     </div>
-    
+
     <footer class="dashboard-footer">
       <p>{{ branding.footer_text || `Monitored by ${agency.name} using Website Mage` }}</p>
     </footer>
@@ -975,14 +968,14 @@ CREATE INDEX idx_audit_user ON audit_log(user_id);
 </template>
 
 <script setup>
-const { data: grantedSites } = await useFetch('/api/client/sites')
-const { data: agency } = await useFetch('/api/client/agency')
+const { data: grantedSites } = await useFetch('/api/client/sites');
+const { data: agency } = await useFetch('/api/client/agency');
 
-const branding = computed(() => agency.value?.branding_json || {})
+const branding = computed(() => agency.value?.branding_json || {});
 
 const brandingStyles = computed(() => ({
-  '--primary-color': branding.value.primary_color || '#2563eb'
-}))
+  '--primary-color': branding.value.primary_color || '#2563eb',
+}));
 </script>
 
 <style scoped>
@@ -1019,26 +1012,26 @@ const brandingStyles = computed(() => ({
 ```
 
 **Request Improvement Feature:**
+
 ```typescript
 app.post('/client/request-improvement', async (c) => {
-  const { site_id, message } = await c.req.json()
-  const user = c.get('user')
-  
-  const { data: site } = await c.env.SUPABASE
-    .from('sites')
+  const { site_id, message } = await c.req.json();
+  const user = c.get('user');
+
+  const { data: site } = await c.env.SUPABASE.from('sites')
     .select('domain, agencies(admin_email, name)')
     .eq('id', site_id)
-    .single()
-  
+    .single();
+
   // Send notification to agency admin
   await sendEmail(c.env, {
     to: site.agencies.admin_email,
     subject: `Client requested performance improvement for ${site.domain}`,
-    body: `Client ${user.name} (${user.email}) has requested performance improvement for ${site.domain}.\n\nMessage: ${message}\n\nView site: https://app.websitemage.com/sites/${site_id}`
-  })
-  
-  return c.json({ success: true })
-})
+    body: `Client ${user.name} (${user.email}) has requested performance improvement for ${site.domain}.\n\nMessage: ${message}\n\nView site: https://app.websitemage.com/sites/${site_id}`,
+  });
+
+  return c.json({ success: true });
+});
 ```
 
 ---
@@ -1061,16 +1054,19 @@ app.post('/client/request-improvement', async (c) => {
 ## Dependencies & Prerequisites
 
 **Requires Epics 1-6 Completion:**
+
 - Full platform operational
 - Billing system for tier enforcement
 - Alert system for notifications
 
 **New Services Needed:**
+
 - Supabase Storage for logos and reports
 - PDF generation service (DocRaptor or Puppeteer)
 - Custom domain SSL via Cloudflare
 
 **After Epic 7 Completion:**
+
 - Complete agency-tier feature set
 - White-label solution operational
 - Client self-service dashboards live
