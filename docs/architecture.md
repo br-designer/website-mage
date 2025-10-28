@@ -1530,7 +1530,7 @@ Production deploy → Smoke tests → Monitor (Sentry + Cloudflare Analytics)
 ### Core Standards
 
 - **Languages & Runtimes:** TypeScript 5.3.3 (strict mode), Node.js 20.11.0 LTS
-- **Style & Linting:** ESLint (recommended rules + Vue plugin + TypeScript), Prettier (120 char line width, single quotes, trailing commas)
+- **Style & Linting:** ESLint (recommended rules + Vue plugin + TypeScript), Prettier (100 char line width, single quotes, trailing commas)
 - **Test Organization:** Tests colocated with source: `*.test.ts` or `*.spec.ts` in same directory as `*.ts`, E2E tests in `tests/e2e/`
 
 ### Naming Conventions
