@@ -4,11 +4,34 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "echo 'Nuxt dev server to be configured in next story'",
-    "build": "echo 'Nuxt build to be configured in next story'",
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "test": "echo 'Tests to be added in future stories'"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@nuxtjs/supabase": "^1.4.0",
+    "@pinia/nuxt": "^0.5.5",
+    "@sentry/nuxt": "^8.33.1",
+    "@supabase/supabase-js": "^2.45.0",
+    "nuxt": "^3.13.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.12.0",
+    "@vue/test-utils": "^2.4.0",
+    "eslint": "^9.0.0",
+    "globals": "^16.4.0",
+    "happy-dom": "^15.0.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.6.0",
+    "vitest": "^1.6.0",
+    "vue-tsc": "^3.1.2"
+  }
 }

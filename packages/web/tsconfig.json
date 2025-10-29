@@ -1,11 +1,10 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@websitemage/shared/*": ["../shared/src/*"]
+      "@/*": ["./*"],
+      "~/*": ["./*"]
     }
-  },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.vue"],
-  "exclude": ["node_modules", "dist", ".nuxt", ".output"]
+  }
 }
