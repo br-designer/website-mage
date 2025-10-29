@@ -56,16 +56,60 @@ pnpm install
 
 This will install all dependencies and set up git hooks automatically.
 
-### 3. Environment variables
+### 3. Supabase Setup
 
-Create `.env` files in the appropriate packages:
+Website Mage uses Supabase for authentication and database. Follow these steps:
 
-- `packages/web/.env` - Nuxt frontend environment variables
-- `packages/workers/.env` - Cloudflare Workers environment variables
+#### 3.1 Create Supabase Project
 
-Refer to `.env.example` files in each package for required variables.
+1. Sign up at [supabase.com](https://supabase.com)
+2. Create a new project (e.g., `websitemage-dev`)
+3. Note your project's URL and API keys from Project Settings > API
 
-### 4. Start development servers
+#### 3.2 Link Supabase CLI
+
+```bash
+# Install Supabase CLI (macOS)
+brew install supabase/tap/supabase
+
+# Link to your Supabase project
+supabase link --project-ref <your-project-ref>
+```
+
+#### 3.3 Run Database Migrations
+
+```bash
+# Push migrations to your Supabase project
+supabase db push
+```
+
+This will create the core database schema including:
+
+- `agencies` table
+- `agency_members` table
+- `sites` table
+- Row Level Security (RLS) policies
+- Seed data for development
+
+### 4. Environment Variables
+
+Copy the example environment file and fill in your Supabase credentials:
+
+```bash
+cp .env.example .env.local
+```
+
+Update `.env.local` with your values:
+
+```env
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_KEY=your-service-role-key-here
+```
+
+**Security Note**: Never commit `.env.local` or expose `SUPABASE_SERVICE_KEY` client-side.
+
+### 5. Start Development Servers
 
 ```bash
 pnpm run dev
